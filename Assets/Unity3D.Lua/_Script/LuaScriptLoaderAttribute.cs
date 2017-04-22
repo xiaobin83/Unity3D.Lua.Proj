@@ -24,6 +24,7 @@ SOFTWARE.
 using System;
 using System.Reflection;
 using System.Linq;
+using UnityEngine;
 
 namespace lua
 {
@@ -31,16 +32,35 @@ namespace lua
 	{
 		public delegate byte[] ScriptLoader(string scriptName, out string scriptPath);
 		static ScriptLoader cachedScriptLoader;
+		static bool scriptLoaderCached = false;
 		public static ScriptLoader GetLoader()
 		{
-			if (cachedScriptLoader != null) return cachedScriptLoader;
-			var allTypes = Assembly.Load("Assembly-CSharp").GetTypes().AsEnumerable();
-			try {
-				var typesInPlugins = Assembly.Load("Assembly-CSharp-firstpass").GetTypes();
-				allTypes = allTypes.Union(typesInPlugins);
+			if (scriptLoaderCached) return cachedScriptLoader;
+			scriptLoaderCached = true;
+
+			System.Collections.Generic.IEnumerable<Type> allTypes = null;
+			try
+			{
+				allTypes = Assembly.Load("Assembly-CSharp").GetTypes().AsEnumerable();
 			}
 			catch
 			{ }
+			try
+			{
+				var typesInPlugins = Assembly.Load("Assembly-CSharp-firstpass").GetTypes();
+				if (allTypes != null)
+					allTypes = allTypes.Union(typesInPlugins);
+				else
+					allTypes = typesInPlugins;
+			}
+			catch
+			{ }
+			if (allTypes == null)
+			{
+				Debug.LogError("ScritpLoader not found!");
+				return null;
+			}
+
 			var methods = allTypes.SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public))
 				.Where(m => m.GetCustomAttributes(typeof(LuaScriptLoaderAttribute), false).Length > 0)
 				.ToArray();

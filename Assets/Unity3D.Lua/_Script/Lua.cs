@@ -1222,7 +1222,7 @@ namespace lua
 			var num_va_arg = luaArgTypes.Length - va_start;
 			if (num_va_arg == 0)
 			{
-				return 0;
+				return -1;
 			}
 			if (type == typeof(object)) // params object[] args, common form
 			{
