@@ -1899,6 +1899,14 @@ namespace lua
 			if (retVal != null)
 			{
 				PushValueInternal(L, retVal);
+				var t = retVal.GetType();
+				if (t == typeof(LuaTable)
+					|| t == typeof(LuaThread)
+					|| t == typeof(LuaFunction))
+				{
+					var d = (IDisposable)retVal;
+					d.Dispose();
+				}
 				++outValues;
 			}
 			// out and ref parameters

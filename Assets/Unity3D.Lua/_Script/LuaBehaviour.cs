@@ -172,7 +172,7 @@ namespace lua
 		}
 		int luaBehaviourRef = Api.LUA_NOREF;
 
-		public LuaTable LoadScript(string scriptName)
+		public void LoadScript(string scriptName)
 		{
 			if (!scriptLoaded)
 			{
@@ -183,10 +183,18 @@ namespace lua
 			{
 				Debug.LogWarning("script already loaded.");
 			}
-			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			var runTime = LuaTable.MakeRefTo(L, -1);
-			Api.lua_pop(L, 1);
-			return runTime;
+		}
+
+		public LuaTable GetBehaviourTable()
+		{
+			if (luaBehaviourRef != Api.LUA_NOREF)
+			{
+				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+				var t = LuaTable.MakeRefTo(L, -1);
+				Api.lua_pop(L, 1);
+				return t;
+			}
+			return null;
 		}
 
 		void Awake()
