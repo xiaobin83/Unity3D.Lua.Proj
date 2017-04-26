@@ -24,6 +24,7 @@ SOFTWARE.
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace lua
 {
@@ -121,7 +122,7 @@ namespace lua
 		[HideInInspector]
 		GameObject[] gameObjects;
 
-		LuaInstanceBehaviour0 instanceBehaviour;
+		List<LuaInstanceBehaviour0> instanceBehaviours = new List<LuaInstanceBehaviour0>();
 
 		public enum Message
 		{
@@ -136,8 +137,23 @@ namespace lua
 			FixedUpdate,
 			LateUpdate,
 
+			OnCollisionEnter,
+			OnCollisionExit,
+			OnCollisionStay,
+
+			OnCollisionEnter2D,
+			OnCollisionExit2D,
+			OnCollisionStay2D,
+
+			Event_PointerClick,
+			Event_PointerDown,
+			Event_PointerUp,
+			Event_PointerEnter,
+			Event_PointerExit,
+
 			_Count
 		}
+
 		int[] messageRef_ = null;
 		int[] messageRef
 		{
@@ -199,10 +215,10 @@ namespace lua
 
 		void Awake()
 		{
-			if (L == null)
+			if (L == null || !L.valid)
 			{
-				Debug.LogError("Call LuaBehaviour.SetLua first. Creating lua_State in LuaBehaviour.Awake, unsafe!");
-				SetLua(new Lua());
+				Debug.LogError("Call LuaBehaviour.SetLua first.");
+				return;
 			}
 
 			if (string.IsNullOrEmpty(scriptName))
@@ -273,7 +289,40 @@ namespace lua
 				// choose script
 				int flag = messageFlag & (MakeFlag(Message.Update) | MakeFlag(Message.FixedUpdate) | MakeFlag(Message.LateUpdate));
 				var componentType = Type.GetType("lua.LuaInstanceBehaviour" + flag.ToString());
-				instanceBehaviour = gameObject.AddComponent(componentType) as LuaInstanceBehaviour0;
+				instanceBehaviours.Add(gameObject.AddComponent(componentType) as LuaInstanceBehaviour0);
+
+				flag = messageFlag & (MakeFlag(Message.OnCollisionEnter) | MakeFlag(Message.OnCollisionExit));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaCollisionBehaviour>());
+				}
+				flag = messageFlag & MakeFlag(Message.OnCollisionStay);
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaCollisionStayBehaviour>());
+				}
+
+				flag = messageFlag & (MakeFlag(Message.OnCollisionEnter2D) | MakeFlag(Message.OnCollisionExit2D));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaCollisionBehaviour2D>());
+				}
+				flag = messageFlag & MakeFlag(Message.OnCollisionStay2D);
+				if (flag !=	0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaCollisionStayBehaviour2D>());
+				}
+
+				flag = messageFlag 
+					& (MakeFlag(Message.Event_PointerClick)
+					| MakeFlag(Message.Event_PointerUp)
+					| MakeFlag(Message.Event_PointerDown)
+					| MakeFlag(Message.Event_PointerEnter)
+					| MakeFlag(Message.Event_PointerExit));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaPointerEventHander>());
+				}
 
 				Api.lua_pop(L, 2); // pop instance table, script table
 
@@ -293,7 +342,10 @@ namespace lua
 				RunInitFuncOnInstanceTable(L);
 
 				// Awake Lua script
-				instanceBehaviour.SetLuaBehaviour(this);
+				for (int i = 0; i < instanceBehaviours.Count; ++i)
+				{
+					instanceBehaviours[i].SetLuaBehaviour(this);
+				}
 			}
 			else
 			{
@@ -332,16 +384,20 @@ namespace lua
 
 		void OnEnable()
 		{
-			if (instanceBehaviour != null)
-				instanceBehaviour.enabled = true;
+			for (int i = 0; i < instanceBehaviours.Count; ++i)
+			{
+				instanceBehaviours[i].enabled = true;
+			}
 			SendLuaMessage(Message.OnEnable);
 		}
 
 		void OnDisable()
 		{
 			SendLuaMessage(Message.OnDisable);
-			if (instanceBehaviour != null)
-				instanceBehaviour.enabled = false;
+			for (int i = 0; i < instanceBehaviours.Count; ++i)
+			{
+				instanceBehaviours[i].enabled = false;
+			}
 		}
 
 		void OnDestroy()
@@ -464,7 +520,7 @@ namespace lua
 
 		public void SendLuaMessage(Message message)
 		{
-			if (L == null) return;
+			if (L == null || !L.valid) return;
 
 			if (!scriptLoaded) return;
 
@@ -479,6 +535,41 @@ namespace lua
 				try
 				{
 					L.Call(1, 0);
+				}
+				catch (Exception e)
+				{
+					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				}
+			}
+			Api.lua_pop(L, 1); // pop behaviour table
+		}
+
+		public void SendLuaMessage(Message message, params object[] objs)
+		{
+			if (L == null || !L.valid) return;
+
+			if (!scriptLoaded) return;
+
+			if ((messageFlag & MakeFlag(message)) == 0) return; // no message defined
+
+			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+			// get message func	from instance table
+			if (Api.lua_rawgeti(L, -1, messageRef[(int)message]) == Api.LUA_TFUNCTION)
+			{
+				Api.lua_pushvalue(L, -2);
+				// stack: func, instance table
+				var numParams = 0;
+				if (objs != null)
+				{
+					for (int i = 0; i < objs.Length; ++i)
+					{
+						L.PushValue(objs[i]);
+						++numParams;
+					}
+				}
+				try
+				{
+					L.Call(numParams + 1, 0);
 				}
 				catch (Exception e)
 				{
@@ -536,8 +627,11 @@ namespace lua
 			StopAllCoroutines();
 			OnDisable();
 			OnDestroy();
-			Destroy(instanceBehaviour);
-			instanceBehaviour = null;
+			for (int i = 0; i < instanceBehaviours.Count; ++i)
+			{
+				Destroy(instanceBehaviours[i]);
+			}
+			instanceBehaviours.Clear();
 		}
 
 		void ReloadLuaScript()
@@ -546,7 +640,6 @@ namespace lua
 			OnEnable();
 			Start();
 		}
-
 
 #if UNITY_EDITOR
 		public static System.Action debuggeePoll;

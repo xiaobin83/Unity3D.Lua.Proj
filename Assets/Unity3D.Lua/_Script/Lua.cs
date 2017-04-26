@@ -1145,7 +1145,7 @@ namespace lua
 			else if (type == typeof(bool))
 			{
 				if (luaArgType == Api.LUA_TBOOLEAN) return 10;
-				return 5;
+				return 4; // convert to bool
 			}
 			else if (type == typeof(LuaFunction) || type == typeof(System.Action) || type == typeof(UnityEngine.Events.UnityAction))
 			{
@@ -1238,7 +1238,7 @@ namespace lua
 				}
 				try
 				{
-					return (GetMatchScore(L, argStart + va_start, type, t) - 1) * num_va_arg;
+					return (GetMatchScore(L, argStart + va_start, type, t) - 2)* num_va_arg;
 				}
 				catch (ArgumentNullException)
 				{

@@ -33,3 +33,4 @@ Library/
 Temp/
 
 *.orig
+*.orig.meta

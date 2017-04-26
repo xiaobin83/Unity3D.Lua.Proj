@@ -1667,8 +1667,37 @@ namespace lua.test
 			Assert.AreEqual(35, (long)th.current[1]);
 		}
 
+		class TestData
+		{
+		}
+
 		class K
 		{
+			public string Xoo(bool t)
+			{
+				return "Xoo_t";
+			}
+
+			public string Xoo(object d)
+			{
+				return "Xoo_d";
+			}
+
+			public object GetTestData()
+			{
+				return new TestData();
+			}
+
+			public string Cool(string a)
+			{
+				return "Cool_a";
+			}
+
+			public string Cool(string a, params string[] b)
+			{
+				return "Cool_ab";
+			}
+
 			public string Foo(string p0, params string[] ps)
 			{
 				return Foo(p0, "_abcd", ps);
@@ -1711,6 +1740,46 @@ namespace lua.test
 		}
 
 		[Test]
+		public void TestOverloadingVaArg()
+		{
+			using (var f = LuaFunction.NewFunction(
+				L,
+				"function(t) return t:Cool('a') end"))
+			{
+				var inst = new K();
+				var retCsharp = inst.Cool("b");
+				var ret = (string)f.Invoke1(null, inst);
+				Assert.AreEqual("Cool_a", ret);
+				Assert.AreEqual(retCsharp, ret);
+            }
+		}
+
+		[Test]
+		public void Bugfix_AmbiguousOverrloadingOnUserDataToBoolean()
+		{
+			using (var f = LuaFunction.NewFunction(
+				L,
+				"function(t) return t:Xoo(t:GetTestData()) end"))
+			{
+				var inst = new K();
+				var ret = (string)f.Invoke1(null, inst);
+				Assert.AreEqual("Xoo_d", ret);
+			}
+		}
+		[Test]
+		public void Bugfix_AmbiguousOverrloadingOnUserDataToBoolean2()
+		{
+			using (var f = LuaFunction.NewFunction(
+				L,
+				"function(t) return t:Xoo(false) end"))
+			{
+				var inst = new K();
+				var ret = (string)f.Invoke1(null, inst);
+				Assert.AreEqual("Xoo_t", ret);
+			}
+		}
+
+		[Test]
 		public void TestCallingMethodWithDefaultParameter()
 		{
 
@@ -1733,8 +1802,10 @@ namespace lua.test
 				"function(t) return t:Foo('a', 'b') end"))
 			{
 				var inst = new K();
+				var retCsharp = inst.Foo("a", "b");
 				var ret = (string)f.Invoke1(null, inst);
 				Assert.AreEqual("ab", ret);
+				Assert.AreEqual(retCsharp, ret);
 			}
 		}
 
