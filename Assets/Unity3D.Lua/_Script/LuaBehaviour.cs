@@ -145,6 +145,14 @@ namespace lua
 			OnCollisionExit2D,
 			OnCollisionStay2D,
 
+			OnTriggerEnter,
+			OnTriggerExit,
+			OnTriggerStay,
+
+			OnTriggerEnter2D,
+			OnTriggerExit2D,
+			OnTriggerStay2D,
+
 			Event_PointerClick,
 			Event_PointerDown,
 			Event_PointerUp,
@@ -313,6 +321,29 @@ namespace lua
 					instanceBehaviours.Add(gameObject.AddComponent<LuaCollisionStayBehaviour2D>());
 				}
 
+				flag = messageFlag & (MakeFlag(Message.OnTriggerEnter) | MakeFlag(Message.OnTriggerEnter));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaTriggerBehaviour>());
+				}
+				flag = messageFlag & MakeFlag(Message.OnTriggerStay);
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaTriggerStayBehaviour>());
+				}
+
+
+				flag = messageFlag & (MakeFlag(Message.OnTriggerEnter2D) | MakeFlag(Message.OnTriggerEnter2D));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaTriggerBehaviour2D>());
+				}
+				flag = messageFlag & MakeFlag(Message.OnTriggerStay2D);
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaTriggerStayBehaviour2D>());
+				}
+
 				flag = messageFlag 
 					& (MakeFlag(Message.Event_PointerClick)
 					| MakeFlag(Message.Event_PointerUp)
@@ -458,23 +489,46 @@ namespace lua
 			return null;
 		}
 
-		public void SendLuaMessage(string message, string parameter)
+		public void SendLuaMessage2(string message)
 		{
-			if (!scriptLoaded) return;
-
-			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			if (Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
+			if (!scriptLoaded || string.IsNullOrEmpty(message)) return;
+			var funcAndParams = message.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			if (funcAndParams.Length >= 1)
 			{
+				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+				Api.lua_getfield(L, -1, message);
 				Api.lua_pushvalue(L, -2);
-				Api.lua_pushstring(L, parameter);
+				for (int i = 1; i < funcAndParams.Length; ++i)
+				{
+					Api.lua_pushstring(L, funcAndParams[i]);
+				}
 				try
 				{
-					L.Call(2, 0);
+					L.Call(1 + funcAndParams.Length - 1, 0);
 				}
 				catch (Exception e)
 				{
 					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
 				}
+				Api.lua_pop(L, 1);
+			}
+		}
+		
+		public void SendLuaMessage(string message, string parameter)
+		{
+			if (!scriptLoaded) return;
+
+			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+			Api.lua_getfield(L, -1, message);
+			Api.lua_pushvalue(L, -2);
+			Api.lua_pushstring(L, parameter);
+			try
+			{
+				L.Call(2, 0);
+			}
+			catch (Exception e)
+			{
+				Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
 		}
