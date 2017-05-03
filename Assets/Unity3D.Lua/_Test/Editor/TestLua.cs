@@ -1937,5 +1937,73 @@ namespace lua.test
 			}
 		}
 
+		public class TestObj
+		{
+		}
+
+		class TestArrayArg
+		{
+			public string Foo(string[] arr)
+			{
+				return arr[0] + arr[1] + arr[2];
+			}
+			public string Foo(TestObj[] arr)
+			{
+				return "testobj";
+            }
+			public string Foo(ulong[] arr)
+			{
+				return "ulong";
+            }
+        }
+
+		[Test]
+		public void Test_ArrayArgFromLua()
+		{
+			var d = new TestArrayArg();
+			L.Import(typeof(TestArrayArg), "TestArrayArg");
+			L.DoString("String = csharp.checked_import('System.String')");
+            using (var f = LuaFunction.NewFunction(L, 
+				"function(d) return d:Foo(csharp.as_array(String, {'1', '2', '3'})) end"))
+			{
+				Assert.AreEqual("123", f.Invoke1(d));
+			}
+		}
+
+		[Test]
+		public void Test_ArrayArgFromLua2()
+		{
+			var d = new TestArrayArg();
+			L.Import(typeof(TestArrayArg), "TestArrayArg");
+            using (var f = LuaFunction.NewFunction(L, 
+				"function(d) return d:Foo(csharp.as_array('string', {'1', '2', '3'})) end"))
+			{
+				Assert.AreEqual("123", f.Invoke1(d));
+			}
+		}
+
+		[Test]
+		public void Test_ArrayArgFromLua3()
+		{
+			var d = new TestArrayArg();
+			var m = new TestObj();
+			L.Import(typeof(TestArrayArg), "TestArrayArg");
+            using (var f = LuaFunction.NewFunction(L, 
+				"function(d, m) return d:Foo(csharp.as_array('lua.test.TestLua+TestObj,Assembly-CSharp-Editor', {m, m, m})) end"))
+			{
+				Assert.AreEqual("testobj", f.Invoke1(d, m));
+			}
+		}
+
+		[Test]
+		public void Test_ArrayArgFromLua4()
+		{
+			var d = new TestArrayArg();
+			L.Import(typeof(TestArrayArg), "TestArrayArg");
+            using (var f = LuaFunction.NewFunction(L, "function(d) return d:Foo(csharp.as_array('ulong', {1, 1, 1})) end"))
+			{
+				Assert.AreEqual("ulong", f.Invoke1(d));
+			}
+		}
 	}
 }

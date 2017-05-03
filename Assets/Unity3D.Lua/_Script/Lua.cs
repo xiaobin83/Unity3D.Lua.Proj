@@ -218,6 +218,19 @@ namespace lua
 			"end";
 		LuaFunction testBytes;
 
+
+		const string kLuaStub_AsArray = 
+			"return function(t, tbl)\n" +
+			"  if #tbl > 0 then\n" +
+			"    local arr = csharp.make_array(t, #tbl)\n" +
+			"    for i, e in ipairs(tbl) do\n"+
+			"      arr[i-1] = e\n"+
+			"    end\n"+
+			"    return arr\n" + 
+			"  end\n" + 
+			"  return nil\n" +
+			"end";
+
 		const string kLuaStub_CheckedImport = 
 			"function(lib) return csharp.check_error(csharp.import(lib)) end";
 
@@ -226,6 +239,96 @@ namespace lua
 		static int _Break(IntPtr L)
 		{
 			return 0;
+		}
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int MakeArray(IntPtr L)
+		{
+			Type typeObj;
+			if (Api.lua_isstring(L, 1))
+			{
+				var typeName = Api.lua_tostring(L, 1);
+				if (typeName == "string")
+				{
+					typeObj = typeof(string);
+				}
+				else if (typeName == "int")
+				{
+					typeObj = typeof(int);
+				}
+				else if (typeName == "float")
+				{
+					typeObj = typeof(float);
+				}
+				else if (typeName == "double")
+				{
+					typeObj = typeof(double);
+				}
+				else if (typeName == "long")
+				{
+					typeObj = typeof(long);
+				}
+				else if (typeName == "byte")
+				{
+					typeObj = typeof(byte);
+				}
+				else if (typeName == "char")
+				{
+					typeObj = typeof(char);
+				}
+				else if (typeName == "uint")
+				{
+					typeObj = typeof(uint);
+				}
+				else if (typeName == "ulong")
+				{
+					typeObj = typeof(ulong);
+				}
+				else
+				{
+					try
+					{
+						typeObj = loadType(typeName);
+					}
+					catch (Exception e)
+					{
+						PushErrorObject(L, e.Message);
+						return 1;
+					}
+				}
+				if (typeObj == null)
+				{
+					PushErrorObject(L, string.Format("MakeArray error, typeName = '{0}' at argument 1 not found", typeName));
+					return 1;
+				}
+			}
+			else
+			{
+				typeObj = (Type)ObjectAtInternal(L, 1);
+				if (typeObj == null)
+				{
+					PushErrorObject(L, "MakeArray error, expected Type object for argument 1 but nil got");
+					return 1;
+				}
+			}
+
+			if (!Api.lua_isnumber(L, 2))
+			{
+				PushErrorObject(L, "MakeArray error, expected number for argument 2");
+				return 1;
+			}
+
+			var length = (int)Api.lua_tonumber(L, 2);
+			if (typeObj is Type)
+			{
+				var obj = Array.CreateInstance((Type)typeObj, length);
+				PushObjectInternal(L, obj);
+			}
+			else
+			{
+				PushErrorObject(L, string.Format("MakeArray error, expected Type object but {0} got", typeObj.GetType().ToString()));
+			}
+			return 1;
 		}
 
 		public Lua()
@@ -272,7 +375,12 @@ namespace lua
 				// addPath (C#)
 				addPath = LuaFunction.NewFunction(this, kLuaStub_AddPath, "add_path");
 
-
+				// csharp.as_array (lua)
+				DoString(kLuaStub_AsArray, 1);
+				var asArray = LuaFunction.MakeRefTo(this, -1);
+				csharp["as_array"] = asArray;
+				asArray.Dispose();
+				Api.lua_pop(L, 1);
 
 				// csharp.to_bytes (lua) and test_bytes (C#)
 				DoString(kLuaStub_Bytes, 2);
@@ -283,10 +391,6 @@ namespace lua
 				asBytes.Dispose();
 
 				Api.lua_pop(L, 2); // pop those
-
-
-
-
 
 				LuaAdditionalFunctions.Open(this);
 			}
@@ -530,6 +634,7 @@ namespace lua
 				new Api.luaL_Reg("import", Import),
 				new Api.luaL_Reg("dofile", DoFile),
 				new Api.luaL_Reg("_break", _Break),
+				new Api.luaL_Reg("make_array", MakeArray)
 			};
 			Api.luaL_newlib(L, regs);
 			return 1;
@@ -555,7 +660,8 @@ namespace lua
 				if (!Application.isPlaying)
 				{
 					var load = LuaTypeLoaderAttribute.GetLoader();
-					type = load(typename);
+					if (load != null)
+						type = load(typename);
 				}
 #endif
 			}

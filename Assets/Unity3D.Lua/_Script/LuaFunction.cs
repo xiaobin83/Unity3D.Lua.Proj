@@ -213,7 +213,7 @@ namespace lua
 
 		public static LuaFunction MakeRefTo(Lua L, int idx)
 		{
-			Lua.Assert(Api.lua_isfunction(L, idx));
+			Lua.Assert(Api.lua_isfunction(L, idx), "not function");
 			return new LuaFunction { L_ = L, funcRef = L.MakeRefAt(idx) };
 		}
 
