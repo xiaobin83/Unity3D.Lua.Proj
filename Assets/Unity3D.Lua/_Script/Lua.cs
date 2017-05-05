@@ -970,12 +970,13 @@ namespace lua
 			return 0;
 		}
 
+
 		internal const string objectMetaTable = "object_meta";
 		internal const string classMetaTable = "class_meta";
 
-
+	
 		// [-0,	+1,	m]
- 		// return 1 if Metatable of object is newly created. 
+		// return 1 if Metatable of object is newly created. 
 		internal int PushObject(object obj, string metaTableName = objectMetaTable)
 		{
 			return PushObjectInternal(L, obj, metaTableName);
@@ -1001,10 +1002,16 @@ namespace lua
 			return ObjectAtInternal(L, idx);
 		}
 
-		internal static object ObjectAtInternal(IntPtr L, int idx)
+		internal static IntPtr TestUdata(IntPtr L, int idx)
 		{
 			var userdata = Api.luaL_testudata(L, idx, objectMetaTable);
 			if (userdata == IntPtr.Zero) userdata = Api.luaL_testudata(L, idx, classMetaTable);
+			return userdata;
+		}
+
+		internal static object ObjectAtInternal(IntPtr L, int idx)
+		{
+			var userdata = TestUdata(L, idx);
 			if (userdata != IntPtr.Zero)
 				return UdataToObject(userdata);
 			return null;
@@ -1639,10 +1646,7 @@ namespace lua
 		}
 		public static void CleanMethodCache()
 		{
-			lock (methodCache)
-			{
-				methodCache.Clear();
-			}
+			methodCache.Clear();
 		}
 
 		internal static System.Reflection.MethodBase GetMethodFromCache(Type targetType, string mangledName)
@@ -1650,14 +1654,13 @@ namespace lua
 			if (!useMethodCache) return null;
 
 			System.Reflection.MethodBase method = null;
-			lock (methodCache)
+
+			Dictionary<string, System.Reflection.MethodBase> cachedMethods;
+			if (methodCache.TryGetValue(targetType, out cachedMethods))
 			{
-				Dictionary<string, System.Reflection.MethodBase> cachedMethods;
-				if (methodCache.TryGetValue(targetType, out cachedMethods))
-				{
-					cachedMethods.TryGetValue(mangledName, out method);
-				}
+				cachedMethods.TryGetValue(mangledName, out method);
 			}
+
 			return method;
 		}
 
@@ -1696,20 +1699,17 @@ namespace lua
 			return sb.ToString();
 		}
 
-		internal static void CacheMethod(IntPtr L, Type targetType, string mangledName, System.Reflection.MethodBase method)
+		internal static void CacheMethod(Type targetType, string mangledName, System.Reflection.MethodBase method)
 		{
 			if (!useMethodCache) return;
-			lock (methodCache)
+			Dictionary<string, System.Reflection.MethodBase> cachedMethods;
+			if (!methodCache.TryGetValue(targetType, out cachedMethods))
 			{
-				Dictionary<string, System.Reflection.MethodBase> cachedMethods;
-				if (!methodCache.TryGetValue(targetType, out cachedMethods))
-				{
-					cachedMethods = new Dictionary<string, System.Reflection.MethodBase>();
-					methodCache.Add(targetType, cachedMethods);
-				}
-				Assert(!cachedMethods.ContainsKey(mangledName), string.Format("{0} of {1} already cached with mangled name {2}", method.ToString(), targetType.ToString(), mangledName));
-				cachedMethods.Add(mangledName, method);
+				cachedMethods = new Dictionary<string, System.Reflection.MethodBase>();
+				methodCache.Add(targetType, cachedMethods);
 			}
+			Assert(!cachedMethods.ContainsKey(mangledName), string.Format("{0} of {1} already cached with mangled name {2}", method.ToString(), targetType.ToString(), mangledName));
+			cachedMethods.Add(mangledName, method);
 		}
 
 		internal static void PushErrorObject(IntPtr L, string message) // No Throw
@@ -1868,7 +1868,7 @@ namespace lua
 			method = selected;
 			if (method != null)
 			{
-				CacheMethod(L, invokingType, mangledName, method);
+				CacheMethod(invokingType, mangledName, method);
 			}
 			else
 			{
@@ -2229,44 +2229,99 @@ namespace lua
 			}
 		}
 
+		static Dictionary<Type, Dictionary<string, System.Reflection.MemberInfo>> memberCache = new Dictionary<Type, Dictionary<string, System.Reflection.MemberInfo>>();
+
+		static bool useMemberCache = true;
+		public static bool UseMembmerCache(bool useMemberCache_ = true)
+		{
+			var wasUsingMemberCache = useMemberCache;
+			useMemberCache = useMemberCache_;
+			return wasUsingMemberCache;
+		}
+		public static void CleanMemberCache()
+		{
+			memberCache.Clear();
+		}
+
+		static void CacheMember(Type type, string memberName, System.Reflection.MemberInfo mi)
+		{
+			if (!useMemberCache) return;
+
+			Dictionary<string, System.Reflection.MemberInfo> cache;
+			if (!memberCache.TryGetValue(type, out cache))
+			{
+				cache = new Dictionary<string, System.Reflection.MemberInfo>();
+				memberCache[type] = cache;
+			}
+			cache.Add(memberName, mi);
+		}
+		static bool GetMemberFromCache(Type type, string memberName, out System.Reflection.MemberInfo mi)
+		{
+			if (!useMemberCache)
+			{
+				mi = null;
+				return false;
+			}
+
+			Dictionary<string, System.Reflection.MemberInfo> cache;
+			if (memberCache.TryGetValue(type, out cache))
+			{
+				return cache.TryGetValue(memberName, out mi);
+			}
+			mi = null;
+			return false;
+		}
+
 		internal static int GetMember(IntPtr L, object obj, Type objType, string memberName)
 		{
-			var members = objType.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
-			if (members.Length > 0)
+			System.Reflection.MemberInfo member = null;
+			var hasCachedMember = GetMemberFromCache(objType, memberName, out member);
+			if (!hasCachedMember)
 			{
-				var member = members[0];
-				if (member.MemberType == System.Reflection.MemberTypes.Field)
+				var members = objType.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+				if (members.Length > 0)
 				{
-					var field = (System.Reflection.FieldInfo)member;
-					PushValueInternal(L, field.GetValue(obj));
-					return 1;
+					member = members[0];
 				}
-				else if (member.MemberType == System.Reflection.MemberTypes.Property)
-				{
-					var prop = (System.Reflection.PropertyInfo)member;
-					try
-					{
-						PushValueInternal(L, prop.GetValue(obj, null));
-						return 1;
-					}
-					catch (ArgumentException ae)
-					{
-						// search into base	class of obj
-						Assert(objType != typeof(object), string.Format("Member {0} not found. {1}", memberName, ae.Message));
-						return GetMember(L, obj, objType.BaseType, memberName);
-					}
-				}
-				else if (member.MemberType == System.Reflection.MemberTypes.Method)
-				{
-					bool isInvokingFromClass = (obj == null);
-					Api.lua_pushboolean(L, isInvokingFromClass);      // upvalue 1 --> isInvokingFromClass
-					Api.lua_pushvalue(L, 1);                          // upvalue 2 --> userdata, first parameter of __index
-					Api.lua_pushvalue(L, 2);                          // upvalue 3 --> member name
-					Api.lua_pushcclosure(L, InvokeMethod, 3);         // return a wrapped lua_CFunction
-					return 1;
-				}
+				CacheMember(objType, memberName, member);
+			}
 
+			if (member == null)
+			{
+				// search into base	class of obj
+				if (objType != typeof(object))
+					return GetMember(L, obj, objType.BaseType, memberName);
 				Api.lua_pushnil(L);
+				return 1;
+			}
+			else if (member.MemberType == System.Reflection.MemberTypes.Field)
+			{
+				var field = (System.Reflection.FieldInfo)member;
+				PushValueInternal(L, field.GetValue(obj));
+				return 1;
+			}
+			else if (member.MemberType == System.Reflection.MemberTypes.Property)
+			{
+				var prop = (System.Reflection.PropertyInfo)member;
+				try
+				{
+					PushValueInternal(L, prop.GetValue(obj, null));
+					return 1;
+				}
+				catch (ArgumentException ae)
+				{
+					// search into base	class of obj
+					Assert(objType != typeof(object), string.Format("Member {0} not found. {1}", memberName, ae.Message));
+					return GetMember(L, obj, objType.BaseType, memberName);
+				}
+			}
+			else if (member.MemberType == System.Reflection.MemberTypes.Method)
+			{
+				bool isInvokingFromClass = (obj == null);
+				Api.lua_pushboolean(L, isInvokingFromClass);      // upvalue 1 --> isInvokingFromClass
+				Api.lua_pushvalue(L, 1);                          // upvalue 2 --> userdata, first parameter of __index
+				Api.lua_pushvalue(L, 2);                          // upvalue 3 --> member name
+				Api.lua_pushcclosure(L, InvokeMethod, 3);         // return a wrapped lua_CFunction
 				return 1;
 			}
 			else
@@ -2411,47 +2466,57 @@ namespace lua
 		{
 			Assert(type.IsClass || type.IsAnsiClass, string.Format("Setting property {0} of {1} object", memberName, type.ToString()));
 
-			var members = type.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
-			Assert(members.Length > 0, string.Format("Cannot find property with name {0} of type {1}", memberName, type.ToString()));
-
-			if (members.Length > 0)
+			System.Reflection.MemberInfo member;
+			if (!GetMemberFromCache(type, memberName, out member))
 			{
-				var member = members[0];
-				if (member.MemberType == System.Reflection.MemberTypes.Field)
+				var members = type.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+				Assert(members.Length > 0, string.Format("Cannot find property with name {0} of type {1}", memberName, type.ToString()));
+				if (members.Length > 0)
 				{
-					var field = (System.Reflection.FieldInfo)member;
-					var fieldType = field.FieldType;
-					object converted;
-					if (TryConvertTo(fieldType, value, out converted))
-					{
-						field.SetValue(thisObject, converted);
-					}
-					else
-					{
-						converted = System.Convert.ChangeType(value, fieldType);
-						field.SetValue(thisObject, converted);
-					}
+					member = members[0];
+
 				}
-				else if (member.MemberType == System.Reflection.MemberTypes.Property)
+				CacheMember(type, memberName, member);
+			}
+
+			if (member == null)
+			{
+				Assert(false, string.Format("Cannot find property with name {0} of type {1}", memberName, type.ToString()));
+			}
+			else if (member.MemberType == System.Reflection.MemberTypes.Field)
+			{
+				var field = (System.Reflection.FieldInfo)member;
+				var fieldType = field.FieldType;
+				object converted;
+				if (TryConvertTo(fieldType, value, out converted))
 				{
-					var prop = (System.Reflection.PropertyInfo)member;
-					var propType = prop.PropertyType;
-					object converted;
-					if (TryConvertTo(propType, value, out converted))
-					{
-						prop.SetValue(thisObject, converted, null);
-					}
-					else
-					{
-						converted = System.Convert.ChangeType(value, propType);
-						prop.SetValue(thisObject, converted, null);
-					}
+					field.SetValue(thisObject, converted);
 				}
 				else
 				{
-					Assert(false, string.Format("Member type {0} and {1} expected, but {2} got.", 
-						System.Reflection.MemberTypes.Field, System.Reflection.MemberTypes.Property, member.MemberType));
+					converted = System.Convert.ChangeType(value, fieldType);
+					field.SetValue(thisObject, converted);
 				}
+			}
+			else if (member.MemberType == System.Reflection.MemberTypes.Property)
+			{
+				var prop = (System.Reflection.PropertyInfo)member;
+				var propType = prop.PropertyType;
+				object converted;
+				if (TryConvertTo(propType, value, out converted))
+				{
+					prop.SetValue(thisObject, converted, null);
+				}
+				else
+				{
+					converted = System.Convert.ChangeType(value, propType);
+					prop.SetValue(thisObject, converted, null);
+				}
+			}
+			else
+			{
+				Assert(false, string.Format("Member type {0} and {1} expected, but {2} got.",
+					System.Reflection.MemberTypes.Field, System.Reflection.MemberTypes.Property, member.MemberType));
 			}
 		}
 
