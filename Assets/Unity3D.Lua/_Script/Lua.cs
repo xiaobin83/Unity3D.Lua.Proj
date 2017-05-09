@@ -1682,7 +1682,7 @@ namespace lua
 				if (luaArgTypes[i] == Api.LUA_TUSERDATA)
 				{
 					sb.Append('c');
-					var obj = ObjectAt(argStart + i);
+					var obj = ObjectAtInternal(L, argStart + i);
 					if (obj != null)
 					{
 						sb.Append(obj.GetType().FullName);
@@ -2536,18 +2536,17 @@ namespace lua
 
 		}
 
-		static readonly KeyValuePair<string, int>[] binaryOps = new KeyValuePair<string, int>[]
+		static readonly KeyValuePair<string, BinaryOp>[] binaryOps = new KeyValuePair<string, BinaryOp>[]
 		{
-			new KeyValuePair<string, int>("__add", (int)BinaryOp.op_Addition),
-			new KeyValuePair<string, int>("__sub", (int)BinaryOp.op_Subtraction),
-			new KeyValuePair<string, int>("__mul", (int)BinaryOp.op_Multiply),
-			new KeyValuePair<string, int>("__div", (int)BinaryOp.op_Division),
-			new KeyValuePair<string, int>("__mod", (int)BinaryOp.op_Modulus),
+			new KeyValuePair<string, BinaryOp>("__add", BinaryOp.op_Addition),
+			new KeyValuePair<string, BinaryOp>("__sub", BinaryOp.op_Subtraction),
+			new KeyValuePair<string, BinaryOp>("__mul", BinaryOp.op_Multiply),
+			new KeyValuePair<string, BinaryOp>("__div", BinaryOp.op_Division),
+			new KeyValuePair<string, BinaryOp>("__mod", BinaryOp.op_Modulus),
 
-			new KeyValuePair<string, int>("__eq", (int)BinaryOp.op_Equality),
-			new KeyValuePair<string, int>("__lt", (int)BinaryOp.op_LessThan),
-			new KeyValuePair<string, int>("__le", (int)BinaryOp.op_LessThanOrEqual),
-
+			new KeyValuePair<string, BinaryOp>("__eq", BinaryOp.op_Equality),
+			new KeyValuePair<string, BinaryOp>("__lt", BinaryOp.op_LessThan),
+			new KeyValuePair<string, BinaryOp>("__le", BinaryOp.op_LessThanOrEqual),
 		};
 
 		internal enum UnaryOp
@@ -2555,9 +2554,9 @@ namespace lua
 			op_UnaryNegation = 0,
 		}
 
-		static readonly KeyValuePair<string, int>[] unaryOps = new KeyValuePair<string, int>[]
+		static readonly KeyValuePair<string, UnaryOp>[] unaryOps = new KeyValuePair<string, UnaryOp>[]
 		{
-			new KeyValuePair<string, int>("__unm", (int)UnaryOp.op_UnaryNegation),
+			new KeyValuePair<string, UnaryOp>("__unm", UnaryOp.op_UnaryNegation),
 		};
 
 
@@ -2572,14 +2571,14 @@ namespace lua
 
 				foreach (var op in binaryOps)
 				{
-					Api.lua_pushinteger(L, op.Value);
+					Api.lua_pushstring(L, op.Value.ToString());
 					Api.lua_pushcclosure(L, MetaMethod.MetaBinaryOpFunction, 1);
 					Api.lua_setfield(L, -2, op.Key);
 				}
 
 				foreach(var op in unaryOps)
 				{
-					Api.lua_pushinteger(L, op.Value);
+					Api.lua_pushstring(L, op.Value.ToString());
 					Api.lua_pushcclosure(L, MetaMethod.MetaUnaryOpFunction, 1);
 					Api.lua_setfield(L, -2, op.Key);
 				}
