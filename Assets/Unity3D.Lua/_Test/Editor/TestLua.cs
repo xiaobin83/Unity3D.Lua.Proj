@@ -344,25 +344,8 @@ namespace lua.test
 		public void TestMethodCache()
 		{
 			Api.lua_settop(L, 0);
-
 			SetupTestMethodCache();
-			Lua.UseMethodCache();
 			MethodCacheTestLoop();
-
-			Assert.AreEqual(0, Api.lua_gettop(L));
-		}
-
-
-		[Test]
-		public void TestWithoutMethodCache()
-		{
-			Api.lua_settop(L, 0);
-
-			SetupTestMethodCache();
-			Lua.UseMethodCache(false);
-			MethodCacheTestLoop();
-			Lua.UseMethodCache(); // revert it
-
 			Assert.AreEqual(0, Api.lua_gettop(L));
 		}
 

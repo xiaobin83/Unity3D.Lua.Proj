@@ -1526,14 +1526,13 @@ namespace lua
 			return actualArgs.GetValue(idx);
 		}
 
-		internal static object[] ArgsFrom(IntPtr L, System.Reflection.ParameterInfo[] args, int argStart, int numArgs, out IDisposable[] disposableArgs)
+		internal static object[] ArgsFrom(IntPtr L, System.Reflection.ParameterInfo[] args, System.Reflection.ParameterInfo variadicArg, int argStart, int numArgs, out IDisposable[] disposableArgs)
 		{
 			if (args == null || args.Length == 0)
 			{
 				disposableArgs = null;
 				return csharpArgs_NoArgs;
 			}
-			var variadicArg = IsLastArgVariadic(args);
 
 			var luaArgCount = numArgs;
 			var requiredArgCount = args.Length;
@@ -1635,27 +1634,23 @@ namespace lua
 			return sb.ToString();
 		}
 
-		static Dictionary<Type, Dictionary<string, System.Reflection.MethodBase>> methodCache = new Dictionary<Type, Dictionary<string, System.Reflection.MethodBase>>();
-		static bool useMethodCache = true;
-
-		public static bool UseMethodCache(bool useMethodCache_ = true)
+		internal class MethodCache
 		{
-			var wasUsingMethodCache = useMethodCache;
-			useMethodCache = useMethodCache_;
-			return wasUsingMethodCache;
-		}
+			public System.Reflection.MethodBase method;
+			public System.Reflection.ParameterInfo[] parameters;
+			public System.Reflection.ParameterInfo variadicArg;
+        }
+		static Dictionary<Type, Dictionary<string, MethodCache>> methodCache = new Dictionary<Type, Dictionary<string, MethodCache>>();
+
 		public static void CleanMethodCache()
 		{
 			methodCache.Clear();
 		}
 
-		internal static System.Reflection.MethodBase GetMethodFromCache(Type targetType, string mangledName)
+		internal static MethodCache GetMethodFromCache(Type targetType, string mangledName)
 		{
-			if (!useMethodCache) return null;
-
-			System.Reflection.MethodBase method = null;
-
-			Dictionary<string, System.Reflection.MethodBase> cachedMethods;
+			MethodCache method = null;
+			Dictionary<string, MethodCache> cachedMethods;
 			if (methodCache.TryGetValue(targetType, out cachedMethods))
 			{
 				cachedMethods.TryGetValue(mangledName, out method);
@@ -1664,9 +1659,12 @@ namespace lua
 			return method;
 		}
 
+		System.Text.StringBuilder tempSb = new System.Text.StringBuilder();
 		internal string Mangle(string methodName, int[] luaArgTypes, bool invokingStaticMethod, int argStart)
 		{
-			var sb = new System.Text.StringBuilder();
+			var sb = tempSb;
+			sb.Length = 0;
+
 			if (invokingStaticMethod)
 			{
 				sb.Append("_s_");
@@ -1699,17 +1697,23 @@ namespace lua
 			return sb.ToString();
 		}
 
-		internal static void CacheMethod(Type targetType, string mangledName, System.Reflection.MethodBase method)
+		internal static MethodCache CacheMethod(Type targetType, string mangledName, System.Reflection.MethodBase method, System.Reflection.ParameterInfo[] parameters)
 		{
-			if (!useMethodCache) return;
-			Dictionary<string, System.Reflection.MethodBase> cachedMethods;
+			Dictionary<string, MethodCache> cachedMethods;
 			if (!methodCache.TryGetValue(targetType, out cachedMethods))
 			{
-				cachedMethods = new Dictionary<string, System.Reflection.MethodBase>();
+				cachedMethods = new Dictionary<string, MethodCache>();
 				methodCache.Add(targetType, cachedMethods);
 			}
 			Assert(!cachedMethods.ContainsKey(mangledName), string.Format("{0} of {1} already cached with mangled name {2}", method.ToString(), targetType.ToString(), mangledName));
-			cachedMethods.Add(mangledName, method);
+			var cachedData = new MethodCache()
+			{
+				method = method,
+				parameters = parameters,
+				variadicArg = IsLastArgVariadic(parameters),
+			};
+			cachedMethods.Add(mangledName, cachedData);
+			return cachedData;
 		}
 
 		internal static void PushErrorObject(IntPtr L, string message) // No Throw
@@ -1828,14 +1832,15 @@ namespace lua
 			}
 		}
 
-		static System.Reflection.MethodBase MatchMethod(IntPtr L, 
+		static MethodCache MatchMethod(IntPtr L, 
 			Type invokingType, Type type, string methodName, string mangledName, bool invokingStaticMethod,
-			ref object target, int argStart, int[] luaArgTypes, ref System.Reflection.ParameterInfo[] parameters)
+			ref object target, int argStart, int[] luaArgTypes)
 		{
 			System.Reflection.MethodBase method;
 			var members = type.GetMember(methodName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
 			var score = Int32.MinValue;
 			System.Reflection.MethodBase selected = null;
+			System.Reflection.ParameterInfo[] parameters = null;
 			List<Exception> pendingExceptions = null;
 			foreach (var member in members)
 			{
@@ -1843,12 +1848,18 @@ namespace lua
 				var m = (System.Reflection.MethodInfo)member;
 				if (m.IsStatic)
 				{
-					Assert(invokingStaticMethod, string.Format("invoking static method {0} with incorrect syntax.", m.ToString()));
+					if (!invokingStaticMethod)
+					{
+						Assert(false, string.Format("invoking static method {0} with incorrect syntax.", m.ToString()));
+					}
 					target = null;
 				}
 				else
 				{
-					Assert(!invokingStaticMethod, string.Format("invoking non-static method {0} with incorrect syntax.", m.ToString()));
+					if (invokingStaticMethod)
+					{
+						Assert(false, string.Format("invoking non-static method {0} with incorrect syntax.", m.ToString()));
+					}
 				}
 				try
 				{
@@ -1868,16 +1879,16 @@ namespace lua
 			method = selected;
 			if (method != null)
 			{
-				CacheMethod(invokingType, mangledName, method);
+				return CacheMethod(invokingType, mangledName, method, parameters);
+			}
+
+			if (type != typeof(object))
+			{
+				// search into parent
+				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes);
 			}
 			else
 			{
-				if (type != typeof(object))
-				{
-					// search into parent
-					return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, ref parameters);
-				}
-
 				var additionalMessage = string.Empty;
 				if (pendingExceptions != null && pendingExceptions.Count > 0)
 				{
@@ -1890,7 +1901,6 @@ namespace lua
 				}
 				throw new Exception(string.Format("no corresponding csharp method for {0}\n{1}", GetLuaInvokingSigniture(methodName, luaArgTypes), additionalMessage));
 			}
-			return method;
 		}
 
 		static int InvokeMethodInternal(IntPtr L)
@@ -1965,7 +1975,10 @@ namespace lua
 			if (isInvokingFromClass)
 			{
 				type = (System.Type)obj;
-				Assert(invokingStaticMethod, string.Format("invoking static method {0} from class {1} with incorrect syntax", methodName, type.ToString()));
+				if (!invokingStaticMethod)
+				{
+					Assert(false, string.Format("invoking static method {0} from class {1} with incorrect syntax", methodName, type.ToString()));
+				}
 			}
 			else
 			{
@@ -1974,24 +1987,20 @@ namespace lua
 			}
 
 			var mangledName = CheckHost(L).Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
-			var method = GetMethodFromCache(type, mangledName);
-			System.Reflection.ParameterInfo[] parameters = null;
 
-			if (method == null)
+			var mc = GetMethodFromCache(type, mangledName);
+			if (mc == null)
 			{
-				method = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, ref parameters);
-			}
-			else
-			{
-				parameters = method.GetParameters();
+				// match method	throws not matching exception
+				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes);
 			}
 
 			var top = Api.lua_gettop(L);
 			IDisposable[] disposableArgs;
-			var actualArgs = ArgsFrom(L, parameters, argStart, luaArgTypes.Length, out disposableArgs);
+			var actualArgs = ArgsFrom(L, mc.parameters, mc.variadicArg, argStart, luaArgTypes.Length, out disposableArgs);
 			Assert(top == Api.lua_gettop(L), "stack changed after converted args from lua.");
 
-			var retVal = method.Invoke(target, actualArgs);
+			var retVal = mc.method.Invoke(target, actualArgs);
 
 			if (disposableArgs != null)
 			{
@@ -2016,9 +2025,9 @@ namespace lua
 				++outValues;
 			}
 			// out and ref parameters
-			for (int i = 0; i < parameters.Length; ++i)
+			for (int i = 0; i < mc.parameters.Length; ++i)
 			{
-				if (parameters[i].IsOut || parameters[i].ParameterType.IsByRef)
+				if (mc.parameters[i].IsOut || mc.parameters[i].ParameterType.IsByRef)
 				{
 					PushValueInternal(L, actualArgs[i]);
 					++outValues;
@@ -2231,13 +2240,7 @@ namespace lua
 
 		static Dictionary<Type, Dictionary<string, System.Reflection.MemberInfo>> memberCache = new Dictionary<Type, Dictionary<string, System.Reflection.MemberInfo>>();
 
-		static bool useMemberCache = true;
-		public static bool UseMembmerCache(bool useMemberCache_ = true)
-		{
-			var wasUsingMemberCache = useMemberCache;
-			useMemberCache = useMemberCache_;
-			return wasUsingMemberCache;
-		}
+
 		public static void CleanMemberCache()
 		{
 			memberCache.Clear();
@@ -2245,8 +2248,6 @@ namespace lua
 
 		static void CacheMember(Type type, string memberName, System.Reflection.MemberInfo mi)
 		{
-			if (!useMemberCache) return;
-
 			Dictionary<string, System.Reflection.MemberInfo> cache;
 			if (!memberCache.TryGetValue(type, out cache))
 			{
@@ -2257,12 +2258,6 @@ namespace lua
 		}
 		static bool GetMemberFromCache(Type type, string memberName, out System.Reflection.MemberInfo mi)
 		{
-			if (!useMemberCache)
-			{
-				mi = null;
-				return false;
-			}
-
 			Dictionary<string, System.Reflection.MemberInfo> cache;
 			if (memberCache.TryGetValue(type, out cache))
 			{
@@ -2464,16 +2459,22 @@ namespace lua
 
 		internal static void SetMember(IntPtr L, object thisObject, Type type, string memberName, object value)
 		{
-			Assert(type.IsClass || type.IsAnsiClass, string.Format("Setting property {0} of {1} object", memberName, type.ToString()));
+			if (!type.IsClass && !type.IsAnsiClass)
+			{
+				Assert(false, string.Format("Setting property {0} of {1} object", memberName, type.ToString()));
+			}
 
 			System.Reflection.MemberInfo member;
 			if (!GetMemberFromCache(type, memberName, out member))
 			{
 				var members = type.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
-				Assert(members.Length > 0, string.Format("Cannot find property with name {0} of type {1}", memberName, type.ToString()));
 				if (members.Length > 0)
 				{
 					member = members[0];
+				}
+				else
+				{
+					Assert(false, string.Format("Cannot find property with name {0} of type {1}", memberName, type.ToString()));
 
 				}
 				CacheMember(type, memberName, member);

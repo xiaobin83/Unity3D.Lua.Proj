@@ -78,17 +78,17 @@ namespace lua
 
 			var type = (System.Type)typeObj;
 			var mangledName = Lua.CheckHost(L).Mangle("__ctor", luaArgTypes, invokingStaticMethod: true, argStart: 2);
-			var method = Lua.GetMethodFromCache(type, mangledName);
+			var mc = Lua.GetMethodFromCache(type, mangledName);
 			System.Reflection.ParameterInfo[] parameters = null;
-			if (method == null)
+			if (mc == null)
 			{
 				var constructors = type.GetConstructors();
 				System.Reflection.MethodBase selected = null;
 				int highScore = int.MinValue;
 				List<Exception> pendingExceptions = null;
-				for (var i = 0; i < constructors.Length; ++i)
+                for (var i = 0; i < constructors.Length; ++i)
 				{
-					method = constructors[i];
+					var method = constructors[i];
 					try
 					{
 						Lua.MatchingParameters(L, 2, method, luaArgTypes, ref highScore, ref selected, ref parameters);
@@ -105,8 +105,11 @@ namespace lua
 					}
 
 				}
-				method = selected;
-				if (method == null)
+				if (selected != null)
+				{
+					mc = Lua.CacheMethod(type, mangledName, selected, parameters);
+				}
+				else
 				{
 					var additionalMessage = string.Empty;
 					if (pendingExceptions != null && pendingExceptions.Count > 0)
@@ -121,15 +124,11 @@ namespace lua
 					throw new Exception(string.Format("No proper constructor available, calling {0}\n{1}", Lua.GetLuaInvokingSigniture("ctor", luaArgTypes), additionalMessage));
 				}
 			}
-			else
-			{
-				parameters = method.GetParameters();
-			}
 
-			var ctor = (System.Reflection.ConstructorInfo)method;
+			var ctor = (System.Reflection.ConstructorInfo)mc.method;
 
 			IDisposable[] disposableArgs;
-			var args = Lua.ArgsFrom(L, parameters, 2, luaArgTypes.Length, out disposableArgs);
+			var args = Lua.ArgsFrom(L, mc.parameters, mc.variadicArg, 2, luaArgTypes.Length, out disposableArgs);
 			Lua.PushObjectInternal(L, ctor.Invoke(args));
 			if (disposableArgs != null)
 			{
