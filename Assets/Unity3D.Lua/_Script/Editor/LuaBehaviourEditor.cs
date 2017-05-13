@@ -314,13 +314,6 @@ namespace lua
 
 			var serializedKeys = serializedObject.FindProperty("keys");
 			var serializedGameObjects = serializedObject.FindProperty("gameObjects");
-			if (serializedKeys.arraySize != serializedGameObjects.arraySize)
-			{
-				Debug.LogError("different arraySize");
-				var min = Mathf.Min(serializedKeys.arraySize, serializedGameObjects.arraySize);
-				serializedKeys.arraySize = min;
-				serializedGameObjects.arraySize = min;
-			}
 
 			EditorGUILayout.BeginVertical();
 			var idToDelete = -1;

@@ -238,9 +238,14 @@ namespace lua
 					var index = (int)Api.lua_tointeger(L, 2);
 					var elemType = typeObject.GetElementType();
 					object converted;
-					if (Lua.TryConvertTo(elemType, value, out converted))
+					IDisposable disposable;
+					if (Lua.TryConvertTo(elemType, value, out converted, out disposable))
 					{
 						array.SetValue(converted, index);
+						if (disposable != null)
+						{
+							disposable.Dispose();
+						}
 					}
 					else
 					{

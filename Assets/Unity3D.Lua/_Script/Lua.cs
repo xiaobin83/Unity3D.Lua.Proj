@@ -421,7 +421,7 @@ namespace lua
 			// path
 			var path = Application.dataPath;
 			path = System.IO.Path.Combine(path, "Plugins");
-			path = System.IO.Path.Combine(path, "Lua");
+			path = System.IO.Path.Combine(path, "Unity3D.Lua");
 			path = System.IO.Path.Combine(path, "Modules");
 			path = path.Replace('\\', '/');
 			var luaPath = path + "/?.lua;" + path +"/?/init.lua";
@@ -430,7 +430,7 @@ namespace lua
 			// cpath
 			path = Application.dataPath;
 			path = System.IO.Path.Combine(path, "Plugins");
-			path = System.IO.Path.Combine(path, "Lua");
+			path = System.IO.Path.Combine(path, "Unity3D.Lua");
 			path = System.IO.Path.Combine(path, "Windows");
 			if (IntPtr.Size > 4)
 				path = System.IO.Path.Combine(path, "x86_64");
@@ -2364,9 +2364,14 @@ namespace lua
 			{
 				var propType = prop.PropertyType;
 				object converted;
-				if (TryConvertTo(propType, value, out converted))
+				IDisposable disposable;
+				if (TryConvertTo(propType, value, out converted, out disposable))
 				{
 					prop.SetValue(obj, converted, index);
+					if (disposable != null)
+					{
+						disposable.Dispose();
+					}
 				}
 				else
 				{
@@ -2381,8 +2386,9 @@ namespace lua
 			}
 		}
 
-		internal static bool TryConvertTo(Type type, object value, out object converted)
+		internal static bool TryConvertTo(Type type, object value, out object converted, out IDisposable disposable)
 		{
+			disposable = null;
 			if (type == typeof(int))
 			{
 				converted = Convert.ToInt32(value);
@@ -2445,12 +2451,16 @@ namespace lua
 			}
 			else if (type == typeof(System.Action))
 			{
-				converted = LuaFunction.ToAction((LuaFunction)value);
+				var f = (LuaFunction)value;
+				disposable = f;
+				converted = LuaFunction.ToAction(f);
 				return true;
 			}
 			else if (type == typeof(UnityEngine.Events.UnityAction))
 			{
-				converted = LuaFunction.ToUnityAction((LuaFunction)value);
+				var f = (LuaFunction)value;
+				disposable = f;
+				converted = LuaFunction.ToUnityAction(f);
 				return true;
 			}
 			converted = null;
@@ -2489,9 +2499,14 @@ namespace lua
 				var field = (System.Reflection.FieldInfo)member;
 				var fieldType = field.FieldType;
 				object converted;
-				if (TryConvertTo(fieldType, value, out converted))
+				IDisposable disposable;
+				if (TryConvertTo(fieldType, value, out converted, out disposable))
 				{
 					field.SetValue(thisObject, converted);
+					if (disposable != null)
+					{
+						disposable.Dispose();
+					}
 				}
 				else
 				{
@@ -2504,9 +2519,14 @@ namespace lua
 				var prop = (System.Reflection.PropertyInfo)member;
 				var propType = prop.PropertyType;
 				object converted;
-				if (TryConvertTo(propType, value, out converted))
+				IDisposable disposable;
+				if (TryConvertTo(propType, value, out converted, out disposable))
 				{
 					prop.SetValue(thisObject, converted, null);
+					if (disposable != null)
+					{
+						disposable.Dispose();
+					}
 				}
 				else
 				{

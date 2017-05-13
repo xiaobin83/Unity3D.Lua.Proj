@@ -24,6 +24,7 @@ SOFTWARE.
 using UnityEngine.Events;
 using System;
 using AOT;
+using System.Collections.Generic;
 
 namespace lua
 {
@@ -31,6 +32,7 @@ namespace lua
 	{
 		Lua L_;
 		int funcRef = Api.LUA_NOREF;
+		int refCount = 1;
 
 		public static implicit operator Action(LuaFunction f)
 		{
@@ -42,65 +44,144 @@ namespace lua
 			return ToUnityAction(f);
 		}
 
+		class ActionPool
+		{
+			static List<LuaFunction> toCollect = new List<LuaFunction>();
+			class ActionSlot
+			{
+				public ActionSlot(LuaFunction f)
+				{
+					func = f.Retain();
+				}
+
+				~ActionSlot()
+				{
+					lock (toCollect)
+					{
+						toCollect.Add(func);
+					}
+				}
+
+				LuaFunction func;
+				Action action_;
+				public Action action
+				{
+					get
+					{
+						if (action_ == null)
+							action_ = () => func.Invoke();
+						return action_;
+					}
+				}
+
+				UnityAction unityAction_;
+				public UnityAction unityAction
+				{
+					get
+					{
+						if (unityAction_ == null)
+							unityAction_ = () => func.Invoke();
+						return unityAction_;
+					}
+				}
+
+				public Action<T> GetAction<T>()
+				{
+					return (arg) => func.Invoke(arg);
+				}
+
+				public Action<T1, T2> GetAction<T1, T2>()
+				{
+					return (arg1, arg2) => func.Invoke(arg1, arg2);
+				}
+
+				public Action<T1, T2, T3> GetAction<T1, T2, T3>()
+				{
+					return (arg1, arg2, arg3) => func.Invoke(arg1, arg2, arg3);
+				}
+			}
+
+			public static Action ToAction(LuaFunction f)
+			{
+				return (new ActionSlot(f)).action;
+			}
+
+			public static UnityAction ToUnityAction(LuaFunction f)
+			{
+				return (new ActionSlot(f)).unityAction;
+			}
+
+			public static Action<T> ToAction<T>(LuaFunction f)
+			{
+				return (new ActionSlot(f)).GetAction<T>();
+			}
+
+			public static Action<T1, T2> ToAction<T1, T2>(LuaFunction f)
+			{
+				return (new ActionSlot(f)).GetAction<T1, T2>();
+			}
+
+			public static Action<T1, T2, T3> ToAction<T1, T2, T3>(LuaFunction f)
+			{
+				return (new ActionSlot(f)).GetAction<T1, T2, T3>();
+			}
+
+
+			public static void Collect()
+			{
+				lock (toCollect)
+				{
+					for (int i = 0; i < toCollect.Count; ++i)
+					{
+						toCollect[i].Dispose();
+					}
+					toCollect.Clear();
+				}
+			}
+		}
+
+		public static void CollectActionPool()
+		{
+			ActionPool.Collect();
+		}
+
 		public static Action ToAction(LuaFunction f)
 		{
-			f = f.Retain();
-			Action action = () => {
-				f.Invoke();
-				f.Dispose();
-			};
-			return action;
+			return ActionPool.ToAction(f);
 		}
 
 		public static UnityAction ToUnityAction(LuaFunction f)
 		{
-			f = f.Retain();
-			UnityAction action = () => {
-				f.Invoke();
-				f.Dispose();
-			};
-			return action;
+			return ActionPool.ToUnityAction(f);
 		}
-
 
 		public static Action<T> ToAction<T>(LuaFunction f)
 		{
-			f = f.Retain();
-			Action<T> action = (arg) => {
-				f.Invoke(null, arg);
-				f.Dispose();
-			};
-			return action;
+			return ActionPool.ToAction<T>(f);
 		}
 
 		public static Action<T1, T2> ToAction<T1, T2>(LuaFunction f)
 		{
-			f = f.Retain();
-			Action<T1, T2> action = (arg1, arg2) => {
-				f.Invoke(null, arg1, arg2);
-				f.Dispose();
-			};
-			return action;
+			return ActionPool.ToAction<T1, T2>(f);
 		}
 
 		public static Action<T1, T2, T3> ToAction<T1, T2, T3>(LuaFunction f)
 		{
-			f = f.Retain();
-			Action<T1, T2, T3> action = (arg1, arg2, arg3) => {
-				f.Invoke(null, arg1, arg2, arg3);
-				f.Dispose();
-			};
-			return action;
+			return ActionPool.ToAction<T1, T2, T3>(f);
 		}
 
 		public void Dispose()
 		{
-			if (L_.valid && funcRef != Api.LUA_NOREF)
+			--refCount;
+			if (refCount <= 0)
 			{
-				L_.Unref(funcRef);
+				if (L_.valid && funcRef != Api.LUA_NOREF)
+				{
+					L_.Unref(funcRef);
+				}
+				funcRef = Api.LUA_NOREF;
+				L_ = null;
 			}
-			funcRef = Api.LUA_NOREF;
-			L_ = null;
 		}
 
 		internal Lua CheckValid()
@@ -112,11 +193,8 @@ namespace lua
 
 		public LuaFunction Retain()
 		{
-			var L = CheckValid();
-			Push();
-			var ret = new LuaFunction {L_ = L, funcRef = L.MakeRefAt(-1) };
-			Api.lua_pop(L, 1);
-			return ret;
+			++refCount;
+			return this;
 		}
 
 		public void Push()

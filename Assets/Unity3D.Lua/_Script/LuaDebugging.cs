@@ -39,7 +39,7 @@ namespace lua
 		}
 
 		[MenuItem("Lua/Start Debugging ...")]
-		static void StartDebugging()
+		public static void StartDebugging()
 		{
 			StartDebuggingWithOption(debugDebuggee:false);
 		}

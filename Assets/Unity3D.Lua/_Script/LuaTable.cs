@@ -30,6 +30,7 @@ namespace lua
 	{
 		Lua L_;
 		int tableRef = Api.LUA_NOREF;
+		int refCount = 1;
 
 		public LuaTable(Lua L)
 		{
@@ -55,20 +56,24 @@ namespace lua
 
 		public void Dispose()
 		{
-			if (L_ != null && L_.valid && tableRef != Api.LUA_NOREF)
+			--refCount;
+			if (refCount <= 0)
 			{
-				foreach (var c in cached)
+				if (L_ != null && L_.valid && tableRef != Api.LUA_NOREF)
 				{
-					if (c.Value != null)
+					foreach (var c in cached)
 					{
-						c.Value.Dispose();
+						if (c.Value != null)
+						{
+							c.Value.Dispose();
+						}
 					}
+					L_.Unref(tableRef);
 				}
-				L_.Unref(tableRef);
+				cached.Clear();
+				tableRef = Api.LUA_NOREF;
+				L_ = null;
 			}
-			cached.Clear();
-			tableRef = Api.LUA_NOREF;
-			L_ = null;
 		}
 
 		Lua CheckValid()
@@ -80,11 +85,8 @@ namespace lua
 
 		public LuaTable Retain()
 		{
-			var L = CheckValid();
-			Push();
-			var ret = new LuaTable(L, -1);
-			Api.lua_pop(L, 1);
-			return ret;
+			++refCount;
+			return this;
 		}
 
 		public void Push()

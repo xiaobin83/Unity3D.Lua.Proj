@@ -1988,5 +1988,33 @@ namespace lua.test
 				Assert.AreEqual("ulong", f.Invoke1(d));
 			}
 		}
+
+		public class TestAction
+		{
+			public System.Action action;
+			public void Foo()
+			{
+				action();
+			}
+		}
+
+
+		[Test]
+		public void Test_issue_LuaFunctionToActionDisposedAfterBeingCalled()
+		{
+			var t = new TestAction();
+			using (var f = LuaFunction.NewFunction(L, "function(d) d.action = function() end end"))
+			{
+				f.Invoke(t);
+			}
+			t.Foo();
+			t.Foo();
+			LuaFunction.CollectActionPool();
+			t.Foo();
+			t.Foo();
+			t.action = null;
+			System.GC.Collect();
+			LuaFunction.CollectActionPool();
+		}
 	}
 }
