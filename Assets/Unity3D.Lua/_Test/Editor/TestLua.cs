@@ -953,6 +953,41 @@ namespace lua.test
 
 		}
 
+		[Test]
+		public void TestEnumBitwiseOp()
+		{
+			L.Import(typeof(System.Reflection.BindingFlags), "flags");
+			using (var f = LuaFunction.NewFunction(L,
+				"function() return flags.NonPublic | flags.Instance end"))
+			{
+				var r = f.Invoke1();
+				Assert.AreEqual((int)(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance), r);
+			}
+		}
+
+		[Test]
+		public void TestEnumAsArgument()
+		{
+			using (var f = LuaFunction.NewFunction(L,
+				"function(v) return type(v) == 'number' end"))
+			{
+				var r = f.Invoke1(System.Reflection.BindingFlags.Instance);
+				Assert.AreEqual(true, (bool)r);
+			}
+		}
+
+		[Test]
+		public void TestToEnum()
+		{
+			L.Import(typeof(System.Reflection.BindingFlags), "flags");
+			using (var f = LuaFunction.NewFunction(L,
+				"function() return csharp.to_enum(flags, 36) end"))
+			{
+				var r = (System.Reflection.BindingFlags)f.Invoke1();
+				Assert.AreEqual(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, r);
+			}
+		}
+
 		int c = 20;
 		int HaveFun(int a, int b)
 		{
@@ -2015,6 +2050,24 @@ namespace lua.test
 			t.action = null;
 			System.GC.Collect();
 			LuaFunction.CollectActionPool();
+		}
+
+		class TestA
+		{
+			public T Foo<T>() 
+			{
+				return System.Activator.CreateInstance<T>();
+			}
+
+			public void Foo()
+			{
+			}
+		}
+
+		[Test]
+		public void TestGenericMethod()
+		{
+			// "csharp.InvokeGeneric(t, 'Foo', {intType}, {10})";
 		}
 	}
 }

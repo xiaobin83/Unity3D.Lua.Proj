@@ -186,7 +186,7 @@ namespace lua
 
 		const string kLuaStub_ErrorObject =
 			"local error_meta = { __tostring = function(e) return e.message end }\n" +
-			"local table_pack, setmetatable, getmetatable, assert = table.pack, setmetatable, getmetatable, assert\n" +
+			"local table_pack, setmetatable, getmetatable = table.pack, setmetatable, getmetatable\n" +
 			"return function(message) -- push error object\n" + 
 			"  local errObj = { message = message }\n" +
 			"  setmetatable(errObj, error_meta)\n" +
@@ -200,10 +200,21 @@ namespace lua
 			"    if m == error_meta then error('\\ninvoking native function failed: ' .. e.message) end\n" +
 			"  end\n" +
 			"  return ... -- nothing to check\n" +
+			"end,\n" +
+			"function(...) -- test error object, return isErrorObject and values got from parameters\n" +
+			"  local r = table_pack(...)\n" +
+			"  if #r > 0 then\n" + 
+			"    local e = r[1]\n" +
+			"    local m = getmetatable(e)\n" + 
+			"    if m == error_meta then return true, ... end\n" + 
+			"  end\n" +
+			"  return false, ...\n" +
 			"end";
+
 
 		LuaFunction pushError;
 		LuaFunction checkError;
+		LuaFunction testError; // todo, replace checkError with testError
 
 		const string kLuaStub_Bytes =
 			"local hex_dump = csharp.hex_dump\n" +
@@ -239,6 +250,34 @@ namespace lua
 		static int _Break(IntPtr L)
 		{
 			return 0;
+		}
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int ToEnum(IntPtr L)
+		{
+			var enumType = (Type)ObjectAtInternal(L, 1);
+			if (enumType == null || !enumType.IsEnum)
+			{
+				PushErrorObject(L, "expected enum type at argument 1");
+				return 1;
+			}
+			if (Api.lua_isinteger(L, 2))
+			{
+				var value = Api.lua_tointeger(L, 2);
+				try
+				{
+					PushObjectInternal(L, System.Enum.ToObject(enumType, value));
+				}
+				catch (Exception e)
+				{
+					PushErrorObject(L, e.Message);
+				}
+			}
+			else
+			{
+				PushErrorObject(L, "expected integer at argumetn 2");
+			}
+			return 1;
 		}
 
 		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
@@ -351,14 +390,16 @@ namespace lua
 			// Helpers
 			try
 			{
-				// csharp.test_error && csharp.push_error
-				DoString(kLuaStub_ErrorObject, 2, "error_object");
-				// -1 check, -2 push
-				checkError = LuaFunction.MakeRefTo(this, -1);
-				pushError = LuaFunction.MakeRefTo(this, -2);
+				// csharp.check_error && csharp.push_error
+				DoString(kLuaStub_ErrorObject, 3, "error_object");
+				// -1 test, -2 check, -3 push
+				testError = LuaFunction.MakeRefTo(this, -1);
+				checkError = LuaFunction.MakeRefTo(this, -2);
+				pushError = LuaFunction.MakeRefTo(this, -3);
 				// also set to csharp table
+				csharp["test_error"] = testError;
 				csharp["check_error"] = checkError;
-				Api.lua_pop(L, 2); // pop
+				Api.lua_pop(L, 3); // pop
 
 				// ------ BEFORE THIS LINE, ERROR OBJECET is not prepared, so all errors pushed as string
 
@@ -449,6 +490,9 @@ namespace lua
 
 			addPath.Dispose();
 			addPath = null;
+
+			testError.Dispose();
+			testError = null;
 
 			checkError.Dispose();
 			checkError = null;
@@ -634,7 +678,8 @@ namespace lua
 				new Api.luaL_Reg("import", Import),
 				new Api.luaL_Reg("dofile", DoFile),
 				new Api.luaL_Reg("_break", _Break),
-				new Api.luaL_Reg("make_array", MakeArray)
+				new Api.luaL_Reg("make_array", MakeArray),
+				new	Api.luaL_Reg("to_enum",	ToEnum)
 			};
 			Api.luaL_newlib(L, regs);
 			return 1;
@@ -1761,7 +1806,7 @@ namespace lua
 					Api.lua_insert(L, -2);
 					if (Api.LUA_OK != Api.lua_pcall(L, 1, 0, 0)) // do not use host.Call, or you have infinite recursive call.
 					{
-						// has error, test_error calls error() in lua script, catches here
+						// has error, check_error calls error() in lua script, catches here
 						errorMessage = Api.lua_tostring(L, -1);
 						Api.lua_pop(L, 1);
 						return true;
@@ -2220,6 +2265,10 @@ namespace lua
 				var t = (LuaTable)value;
 				t.Push(L);
 			}
+			else if (type.IsEnum)
+			{
+				Api.lua_pushinteger(L, (int)value);
+			}
 			else if (type == typeof(LuaThread))
 			{
 				var th = (LuaThread)value;
@@ -2292,7 +2341,14 @@ namespace lua
 			else if (member.MemberType == System.Reflection.MemberTypes.Field)
 			{
 				var field = (System.Reflection.FieldInfo)member;
-				PushValueInternal(L, field.GetValue(obj));
+				if (field.FieldType.IsEnum)
+				{
+					PushValueInternal(L, (int)field.GetValue(obj));
+				}
+				else
+				{
+					PushValueInternal(L, field.GetValue(obj));
+				}
 				return 1;
 			}
 			else if (member.MemberType == System.Reflection.MemberTypes.Property)
@@ -2300,7 +2356,14 @@ namespace lua
 				var prop = (System.Reflection.PropertyInfo)member;
 				try
 				{
-					PushValueInternal(L, prop.GetValue(obj, null));
+					if (prop.PropertyType.IsEnum)
+					{
+						PushValueInternal(L, (int)prop.GetValue(obj, null));
+					}
+					else
+					{
+						PushValueInternal(L, prop.GetValue(obj, null));
+					}
 					return 1;
 				}
 				catch (ArgumentException ae)
@@ -2340,8 +2403,14 @@ namespace lua
 			}
 			try
 			{
-				var value = prop.GetValue(obj, index);
-				PushValueInternal(L, value);
+				if (prop.PropertyType.IsEnum)
+				{
+					PushValueInternal(L, (int)prop.GetValue(obj, index));
+				}
+				else
+				{
+					PushValueInternal(L, prop.GetValue(obj, index));
+				}
 				return 1;
 			}
 			catch (ArgumentException ae)
@@ -2541,6 +2610,7 @@ namespace lua
 			}
 		}
 
+		// http://stackoverflow.com/a/3016653/84998
 		internal enum BinaryOp
 		{
 			op_Addition = 0,
@@ -2548,6 +2618,14 @@ namespace lua
 			op_Multiply,
 			op_Division,
 			op_Modulus,
+
+			op_BitwiseAnd,
+			op_BitwiseOr,
+			op_ExclusiveOr,
+			op_OnesComplement,
+
+			op_LeftShift,
+			op_RightShift,
 
 			op_Equality,
 			op_LessThan,
@@ -2563,6 +2641,14 @@ namespace lua
 			new KeyValuePair<string, BinaryOp>("__mul", BinaryOp.op_Multiply),
 			new KeyValuePair<string, BinaryOp>("__div", BinaryOp.op_Division),
 			new KeyValuePair<string, BinaryOp>("__mod", BinaryOp.op_Modulus),
+
+			new KeyValuePair<string, BinaryOp>("__band", BinaryOp.op_BitwiseAnd),
+			new KeyValuePair<string, BinaryOp>("__bor", BinaryOp.op_BitwiseOr),
+			new KeyValuePair<string, BinaryOp>("__bxor", BinaryOp.op_ExclusiveOr),
+			new KeyValuePair<string, BinaryOp>("__bnot", BinaryOp.op_OnesComplement),
+
+			new KeyValuePair<string, BinaryOp>("__shl", BinaryOp.op_LeftShift),
+			new KeyValuePair<string, BinaryOp>("__shr", BinaryOp.op_RightShift),
 
 			new KeyValuePair<string, BinaryOp>("__eq", BinaryOp.op_Equality),
 			new KeyValuePair<string, BinaryOp>("__lt", BinaryOp.op_LessThan),
