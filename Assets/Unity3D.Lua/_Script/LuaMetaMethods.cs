@@ -190,6 +190,17 @@ namespace lua
 			{
 				return Lua.GetMember(L, thisObject, typeObject, Api.lua_tostring(L, 2));
 			}
+			else if (Api.lua_istable(L, 2))
+			{
+				var host = Lua.CheckHost(L);
+				var p = LuaTable.MakeRefTo(host, 2);
+				var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
+				p.Dispose();
+				Api.lua_rawgeti(L, 2, 1);
+				var name = Api.lua_tostring(L, -1);
+				Api.lua_pop(L, 1);
+				return Lua.GetMember(L, thisObject, typeObject, name, hasPrivillage);
+			}
 			else
 			{
 				return Lua.IndexObjectInternal(L, thisObject, typeObject, new object[] { Lua.ValueAtInternal(L, 2) });

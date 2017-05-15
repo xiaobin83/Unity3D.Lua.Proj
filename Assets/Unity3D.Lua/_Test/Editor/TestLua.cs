@@ -2052,6 +2052,30 @@ namespace lua.test
 			LuaFunction.CollectActionPool();
 		}
 
+		class PrivatePrivillage
+		{
+			int Foo()
+			{
+				return 42;
+			}
+			int Bar = 84;
+		}
+
+		[Test]
+		public void TestPrivatePrivillage()
+		{
+			var t = new PrivatePrivillage();
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[csharp.private_privillage('Bar')] end"))
+			{
+				Assert.AreEqual(84, f.Invoke1(t));
+			}
+
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[csharp.private_privillage('Foo')](d) end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(t));
+			}
+		}
+
 		class TestA
 		{
 			public T Foo<T>() 

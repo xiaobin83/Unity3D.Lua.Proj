@@ -184,15 +184,25 @@ namespace lua
 			"end";
 		LuaFunction hexDump;
 
+		const string kLuaStub_PrivatePrivillage =
+			"local privillage_meta = { }\n" +
+			"return function(name)\n" +
+			"  local p = { name }\n" + 
+			"  return setmetatable(p, privillage_meta)\n" +
+			"end,\n"+
+			"function(p) -- has_priviate_privillage\n" +
+			"  return getmetatable(p) == privillage_meta\n" +
+			"end";
+		internal LuaFunction hasPrivatePrivillage;
+
 		const string kLuaStub_ErrorObject =
 			"local error_meta = { __tostring = function(e) return e.message end }\n" +
 			"local table_pack, setmetatable, getmetatable = table.pack, setmetatable, getmetatable\n" +
 			"return function(message) -- push error object\n" + 
 			"  local errObj = { message = message }\n" +
-			"  setmetatable(errObj, error_meta)\n" +
-			"  return errObj\n" +
+			"  return setmetatable(errObj, error_meta)\n" +
 			"end,\n" +
-			"function(...) -- check error object, assert if got error, returns all value got if no error\n" +
+			"function(...) -- check error object, error() if got error, returns all value got if no error\n" +
 			"  local r = table_pack(...)\n" + 
 			"  if #r > 0 then\n" +
 			"    local e = r[1] \n" +
@@ -249,6 +259,13 @@ namespace lua
 		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
 		static int _Break(IntPtr L)
 		{
+			return 0;
+		}
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int Print(IntPtr L)
+		{
+			Config.Log(Api.lua_tostring(L, 1));
 			return 0;
 		}
 
@@ -390,6 +407,14 @@ namespace lua
 			// Helpers
 			try
 			{
+				DoString(kLuaStub_PrivatePrivillage, 2, "priviate_privillage");
+				// -1 test, -2 create privillage
+				hasPrivatePrivillage = LuaFunction.MakeRefTo(this, -1);
+				var createPriviatePrivillage = LuaFunction.MakeRefTo(this, -2);
+				csharp["private_privillage"] = createPriviatePrivillage;
+				createPriviatePrivillage.Dispose();
+
+
 				// csharp.check_error && csharp.push_error
 				DoString(kLuaStub_ErrorObject, 3, "error_object");
 				// -1 test, -2 check, -3 push
@@ -490,6 +515,9 @@ namespace lua
 
 			addPath.Dispose();
 			addPath = null;
+
+			hasPrivatePrivillage.Dispose();
+			hasPrivatePrivillage = null;
 
 			testError.Dispose();
 			testError = null;
@@ -679,7 +707,8 @@ namespace lua
 				new Api.luaL_Reg("dofile", DoFile),
 				new Api.luaL_Reg("_break", _Break),
 				new Api.luaL_Reg("make_array", MakeArray),
-				new	Api.luaL_Reg("to_enum",	ToEnum)
+				new	Api.luaL_Reg("to_enum",	ToEnum),
+				new	Api.luaL_Reg("print", Print)
 			};
 			Api.luaL_newlib(L, regs);
 			return 1;
@@ -1879,10 +1908,14 @@ namespace lua
 
 		static MethodCache MatchMethod(IntPtr L, 
 			Type invokingType, Type type, string methodName, string mangledName, bool invokingStaticMethod,
-			ref object target, int argStart, int[] luaArgTypes)
+			ref object target, int argStart, int[] luaArgTypes,
+			bool hasPrivatePrivillage)
 		{
 			System.Reflection.MethodBase method;
-			var members = type.GetMember(methodName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+			var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
+			if (hasPrivatePrivillage)
+				flags |= System.Reflection.BindingFlags.NonPublic;
+			var members = type.GetMember(methodName, flags);
 			var score = Int32.MinValue;
 			System.Reflection.MethodBase selected = null;
 			System.Reflection.ParameterInfo[] parameters = null;
@@ -1930,7 +1963,7 @@ namespace lua
 			if (type != typeof(object))
 			{
 				// search into parent
-				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes);
+				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage);
 			}
 			else
 			{
@@ -1957,7 +1990,19 @@ namespace lua
 			var obj = ObjectAtInternal(L, Api.lua_upvalueindex(2));
 			Assert(obj != null, "invoking target not found at upvalueindex(2)");
 			string methodName;
-			if (!Api.luaL_teststring_strict(L, Api.lua_upvalueindex(3), out methodName))
+			var hasPriviatePrivillage = false;
+			if (Api.lua_istable(L, Api.lua_upvalueindex(3)))
+			{
+				hasPriviatePrivillage = true;
+				Api.lua_rawgeti(L, Api.lua_upvalueindex(3), 1);
+				if (!Api.luaL_teststring_strict(L, -1, out methodName))
+				{
+					Api.lua_pop(L, 1);
+					throw new ArgumentException("expected string (private_privillage)", "methodName (upvalueindex(3))");
+				}
+				Api.lua_pop(L, 1);
+			}
+			else if (!Api.luaL_teststring_strict(L, Api.lua_upvalueindex(3), out methodName))
 			{
 				throw new ArgumentException("expected string", "methodName (upvalueindex(3))");
 			}
@@ -2037,7 +2082,7 @@ namespace lua
 			if (mc == null)
 			{
 				// match method	throws not matching exception
-				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes);
+				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage);
 			}
 
 			var top = Api.lua_gettop(L);
@@ -2316,13 +2361,15 @@ namespace lua
 			return false;
 		}
 
-		internal static int GetMember(IntPtr L, object obj, Type objType, string memberName)
+		internal static int GetMember(IntPtr L, object obj, Type objType, string memberName, bool hasPrivatePrivillage = false)
 		{
 			System.Reflection.MemberInfo member = null;
 			var hasCachedMember = GetMemberFromCache(objType, memberName, out member);
 			if (!hasCachedMember)
 			{
-				var members = objType.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+				var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
+				if (hasPrivatePrivillage) flags |= System.Reflection.BindingFlags.NonPublic;
+				var members = objType.GetMember(memberName, flags);
 				if (members.Length > 0)
 				{
 					member = members[0];
