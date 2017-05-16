@@ -24,7 +24,6 @@ SOFTWARE.
 using System;
 using System.Reflection;
 using System.Linq;
-using UnityEngine;
 
 namespace lua
 {
@@ -57,7 +56,7 @@ namespace lua
 			{ }
 			if (allTypes == null)
 			{
-				Debug.LogError("ScritpLoader not found!");
+				Config.LogError("ScritpLoader not found!");
 				return null;
 			}
 

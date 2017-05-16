@@ -25,7 +25,6 @@ SOFTWARE.
 using System;
 using System.Reflection;
 using System.Linq;
-using UnityEngine;
 
 namespace lua
 {
@@ -59,7 +58,7 @@ namespace lua
 			{ }
 			if (allTypes == null)
 			{
-				Debug.LogError("TypeLoad not found!");
+				Config.LogError("TypeLoad not found!");
 				return null;
 			}
 			var	methods	= allTypes.SelectMany(t	=> t.GetMethods(BindingFlags.Static	| BindingFlags.Public))
