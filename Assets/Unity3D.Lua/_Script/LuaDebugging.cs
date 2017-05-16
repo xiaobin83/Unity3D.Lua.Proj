@@ -21,6 +21,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 using System.Reflection;
 using System;
@@ -30,14 +33,17 @@ namespace lua
 	public class LuaDebugging
 	{
 		static LuaFunction debuggeePoll;
-
+#if UNITY_EDITOR
 		[MenuItem("Lua/Start Debugging (debug debuggee) ...")]
+#endif
 		static void StartDebugging_DumpCommunication()
 		{
 			StartDebuggingWithOption(debugDebuggee:true);
 		}
 
+#if UNITY_EDITOR
 		[MenuItem("Lua/Start Debugging ...")]
+#endif
 		public static void StartDebugging()
 		{
 			StartDebuggingWithOption(debugDebuggee:false);
