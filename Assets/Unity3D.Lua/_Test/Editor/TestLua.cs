@@ -1846,7 +1846,7 @@ namespace lua.test
 		public void TestConvertLuaFunctionToSystemAction()
 		{
 			var f = LuaFunction.NewFunction(L, "function() _G['test1234'] = 20 end");
-			var action = (System.Action)f;
+			var action = LuaFunction.ToAction(f);
 			action();
 			f.Dispose();
 
@@ -2126,7 +2126,7 @@ namespace lua.test
 
 		class TestA
 		{
-			public T Foo<T>() 
+			public T Foo<T>()
 			{
 				return System.Activator.CreateInstance<T>();
 			}
@@ -2139,8 +2139,52 @@ namespace lua.test
 		[Test]
 		public void TestGenericMethod()
 		{
-			var t = typeof(TestA);
-			// "csharp.InvokeGeneric(t, 'Foo', {intType}, {10})";
+			// "csharp.InvokeGeneric(t, 'Foo', {intType}, {10})"; or sth like this
+
+
+
+			// in C#
+			// int Test::Foo(Action<int, long> complete) { complete(1, 2); }
+			// to call Foo in Lua
+			// t:Foo(csharp.to_action('int', 'long', function(a, b) ... end)
+
+		}
+
+
+		class TestB
+		{
+			public int Foo(System.Action<int, string> complete)
+			{
+				complete(10, "a");
+				return 42;
+			}
+		}
+
+		[Test]
+		public void TestGenericActionPre()
+		{
+			L.Import(typeof(UnityEngine.Debug), "Debug");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d, f)\n"	+
+				"  return d:Foo(f)\n" + 
+				"end"))
+			{
+				System.Action<int, string> k = (a, b) => { Debug.Log(a.ToString() + b); };
+				Assert.AreEqual(42, f.Invoke1(new TestB(), k));
+			}
+		}
+
+		// [Test]
+		public void TestGenericAction()
+		{
+			L.Import(typeof(UnityEngine.Debug), "Debug");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n"	+
+				"  --return d:Foo(csharp.to_action('int', 'long', function(a, b) Debug.Log(tostring(a) .. b) end)) end\n" + 
+				"end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(new TestB()));
+			}
 		}
 	}
 }

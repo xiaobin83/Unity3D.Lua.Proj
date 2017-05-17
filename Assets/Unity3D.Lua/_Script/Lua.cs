@@ -1353,7 +1353,8 @@ namespace lua
 				if (luaArgType == Api.LUA_TBOOLEAN) return 10;
 				return 4; // convert to bool
 			}
-			else if (type == typeof(LuaFunction) || type == typeof(System.Action) || type == typeof(UnityEngine.Events.UnityAction))
+			else if (type == typeof(LuaFunction) || type == typeof(System.Action) || type == typeof(UnityEngine.Events.UnityAction)
+				|| typeof(System.Delegate).IsAssignableFrom(type))
 			{
 				if (luaArgType == Api.LUA_TFUNCTION) return 10;
 			}
@@ -1571,19 +1572,25 @@ namespace lua
 						}
 						if (type == typeof(System.Action))
 						{
-							actualArgs.SetValue((System.Action)t, idx);
-							t.Dispose(); // unused anymore
+							actualArgs.SetValue(LuaFunction.ToAction(t), idx);
+							t.Dispose(); // retained in ToAction, unused here
 						}
 						else if (type == typeof(UnityEngine.Events.UnityAction))
 						{
-							actualArgs.SetValue((UnityEngine.Events.UnityAction)t, idx);
-							t.Dispose(); // unused anymore
+							actualArgs.SetValue(LuaFunction.ToUnityAction(t), idx);
+							t.Dispose(); // retained in ToUnityAction, unused here
 						}
-						else
+						else if (type == typeof(LuaFunction))
 						{
 							isDisposable = true;
 							actualArgs.SetValue(t, idx);
 						}
+						else // generic part
+						{
+							actualArgs.SetValue(LuaFunction.ToDelegate(type, t), idx);
+							t.Dispose(); // retained in LuaFunction.CreateDelegate, unused here
+						}
+
 					}
 					break;
 				case Api.LUA_TTHREAD:
@@ -2012,7 +2019,7 @@ namespace lua
 			var hasPriviatePrivillage = false;
 			if (Api.lua_istable(L, Api.lua_upvalueindex(3)))
 			{
-				hasPriviatePrivillage = true;
+				hasPriviatePrivillage = true; // must be private privillage
 				Api.lua_rawgeti(L, Api.lua_upvalueindex(3), 1);
 				if (!Api.luaL_teststring_strict(L, -1, out methodName))
 				{
