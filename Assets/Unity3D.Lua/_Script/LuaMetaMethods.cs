@@ -37,8 +37,7 @@ namespace lua
 		{
 			var isIndexingClassObject = false;
 			var top = Api.lua_gettop(L);
-			Api.lua_getmetatable(L, 1);
-			if (Api.lua_istable(L, -1))
+			if (Api.lua_getmetatable(L, 1) != 0)
 			{
 				Api.lua_rawgeti(L, -1, 1);
 				isIndexingClassObject = Api.lua_toboolean(L, -1);
@@ -193,13 +192,26 @@ namespace lua
 			else if (Api.lua_istable(L, 2))
 			{
 				var host = Lua.CheckHost(L);
-				var p = LuaTable.MakeRefTo(host, 2);
-				var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
-				p.Dispose();
-				Api.lua_rawgeti(L, 2, 1);
-				var name = Api.lua_tostring(L, -1);
-				Api.lua_pop(L, 1);
-				return Lua.GetMember(L, thisObject, typeObject, name, hasPrivillage);
+				using (var p = LuaTable.MakeRefTo(host, 2))
+				{
+					var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
+					if (hasPrivillage)
+					{
+						Api.lua_rawgeti(L, 2, 1);
+						var name = Api.lua_tostring(L, -1);
+						Api.lua_pop(L, 1);
+						return Lua.GetMember(L, thisObject, typeObject, name, hasPrivatePrivillage: true);
+					}
+					var isGettingTypeObject = (bool)host.isIndexingTypeObject.Invoke1(p);
+					if (isGettingTypeObject)
+					{
+						// type = csharp.typeof(d) --> d[csharp.type_object_meta]
+						Lua.PushObjectInternal(L, typeObject);
+						return 1;
+					}
+				}
+				Lua.PushErrorObject(L, "attempt to indexing meaningless lua table");
+				return 1;
 			}
 			else
 			{
@@ -339,16 +351,26 @@ namespace lua
 
 		static int MetaBinaryOpFunctionInternal(lua_State L)
 		{
-			var objectArg = Api.luaL_testudata(L, 1, Lua.objectMetaTable); // test first one
-			if (objectArg == IntPtr.Zero)
+			if (Api.lua_rawequal(L, 1, 2))
 			{
-				objectArg = Api.luaL_testudata(L, 2, Lua.objectMetaTable);
-				if (objectArg == IntPtr.Zero)
-				{
-					Lua.Assert(false, string.Format("Binary op {0} called on unexpected values.", Api.lua_tostring(L, Api.lua_upvalueindex(1))));
-				}
+				Api.lua_pushboolean(L, true);
+				return 1;
+			}
+
+			var objectArg = Api.luaL_testudata(L, 1, Lua.objectMetaTable); // test first one
+			var objectArg2 = Api.luaL_testudata(L, 2, Lua.objectMetaTable);
+			if (objectArg == IntPtr.Zero || objectArg2 == IntPtr.Zero)
+			{
+				Lua.Assert(false, string.Format("Binary op {0} called on unexpected values.", Api.lua_tostring(L, Api.lua_upvalueindex(1))));
 			}
 			var obj = Lua.UdataToObject(objectArg);
+			var obj2 = Lua.UdataToObject(objectArg2);
+			if (obj == obj2)
+			{
+				Api.lua_pushboolean(L, true);
+				return 1;
+			}
+
 			var type = obj.GetType();
 
 			// upvalue 1 --> isInvokingFromClass

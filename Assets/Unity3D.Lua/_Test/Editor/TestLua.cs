@@ -2076,6 +2076,54 @@ namespace lua.test
 			}
 		}
 
+
+		[Test]
+		public void TestTypeOf()
+		{
+			L.Import(typeof(int), "SystemInt");
+			using (var f = LuaFunction.NewFunction(L, "function() return csharp.typeof(SystemInt) end"))
+			{
+				Assert.AreEqual(typeof(int), f.Invoke1());
+			}
+		}
+
+		class TestR
+		{
+			int Foo()
+			{
+				return 42;
+			}
+		}
+
+		[Test]
+		public void TestReflectionInLua()
+		{
+			L.Import(typeof(TestR), "TestR");
+			L.Import(typeof(System.Reflection.BindingFlags), "BindingFlags");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n" +
+				"  local mi = csharp.typeof(TestR):GetMethod('Foo', csharp.to_enum(BindingFlags, 36))\n" +
+				"  return mi:Invoke(d, csharp.make_array('System.Object', 0))\n" + 
+				"end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(new TestR()));
+			}
+		}
+
+		[Test]
+		public void TestTypeOf2()
+		{
+			L.Import(typeof(TestR), "TestR");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n"	+
+				"  return d:GetType() == csharp.typeof(TestR) and csharp.typeof(d) == csharp.typeof(TestR)\n" + 
+				"end"))
+			{
+				Assert.AreEqual(true, f.Invoke1(new TestR()));
+			}
+		}
+
+
 		class TestA
 		{
 			public T Foo<T>() 
@@ -2091,6 +2139,7 @@ namespace lua.test
 		[Test]
 		public void TestGenericMethod()
 		{
+			var t = typeof(TestA);
 			// "csharp.InvokeGeneric(t, 'Foo', {intType}, {10})";
 		}
 	}

@@ -255,7 +255,15 @@ namespace lua
 		const string kLuaStub_CheckedImport = 
 			"function(lib) return csharp.check_error(csharp.import(lib)) end";
 
-				// temp	solution for bp in lua
+		const string kLuaStub_TypeOf = 
+			"local type_of_mark = {}\n" +  // use table to avoid check string for every indexing in C#
+			"return function(obj) -- typeof\n" +
+			"  return obj[type_of_mark]\n" +
+			"end,\n" +
+			"function(mark) return mark == type_of_mark end -- isIndexingTypeObject";
+		internal LuaFunction isIndexingTypeObject;
+
+		// temp	solution for bp in lua
 		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
 		static int _Break(IntPtr L)
 		{
@@ -413,7 +421,15 @@ namespace lua
 				var createPriviatePrivillage = LuaFunction.MakeRefTo(this, -2);
 				csharp["private_privillage"] = createPriviatePrivillage;
 				createPriviatePrivillage.Dispose();
+				Api.lua_pop(L, 2); // pop
 
+				DoString(kLuaStub_TypeOf, 2, "typeof");
+				// -1 isIndexingTypeObject, -2 typeof
+				isIndexingTypeObject = LuaFunction.MakeRefTo(this, -1);
+				var luaTypeOf = LuaFunction.MakeRefTo(this, -2);
+				csharp["typeof"] = luaTypeOf;
+				luaTypeOf.Dispose();
+				Api.lua_pop(L, 2); // pop
 
 				// csharp.check_error && csharp.push_error
 				DoString(kLuaStub_ErrorObject, 3, "error_object");
@@ -518,6 +534,9 @@ namespace lua
 
 			hasPrivatePrivillage.Dispose();
 			hasPrivatePrivillage = null;
+
+			isIndexingTypeObject.Dispose();
+			isIndexingTypeObject = null;
 
 			testError.Dispose();
 			testError = null;
@@ -2175,7 +2194,7 @@ namespace lua
 			{
 				throw new Exception(string.Format("Cannot import type {0}", typename));
 			}
-			if (PushObjectInternal(L, type, classMetaTable) == 1) // typhe object in ImportInternal_ is cached by luaL_requiref
+			if (PushObjectInternal(L, type, classMetaTable) == 1) // type object in ImportInternal_ is cached by luaL_requiref
 			{
 				Api.lua_getmetatable(L, -1); // append info in metatable
 
