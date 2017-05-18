@@ -184,16 +184,46 @@ namespace lua
 			"end";
 		LuaFunction hexDump;
 
-		const string kLuaStub_PrivatePrivillage =
-			"local privillage_meta = { }\n" +
-			"return function(name)\n" +
-			"  local p = { name }\n" + 
-			"  return setmetatable(p, privillage_meta)\n" +
-			"end,\n"+
-			"function(p) -- has_priviate_privillage\n" +
-			"  return getmetatable(p) == privillage_meta\n" +
-			"end";
-		internal LuaFunction hasPrivatePrivillage;
+		const string kLuaStub_Privillage =
+			"local private_mark_meta = {}\n" +
+			"local exact_mark_meta = {}\n" +
+			"local mark_private = function()\n" +
+			"  return setmetatable({}, private_mark_meta)\n" +
+			"end\n" +
+			"local mark_exact = function(...)\n" +
+			"  return setmetatable({...}, exact_mark_meta)\n" +
+			"end\n" +
+			"local mark_generic = function(...)\n" +
+			"  return setmetatable({...}, generic_mark_meta)\n" +
+			"end\n" +
+			"local test_privillage = function(attr, testOnlyPrivate)\n" +
+			"  if #attr < 2 then error('incorrect privillage') end\n" +
+			"  testOnlyPrivate = testOnlyPrivate or 1\n" +
+			"  local name = attr[#attr]\n" +
+			"  local private = false\n" +
+			"  local exact\n" +
+			"  local generic\n" +
+			"  for i = 1, #attr - 1 do\n" +
+			"    local v = attr[i]\n" +
+			"    local meta = getmetatable(v)\n" +
+			"    if meta == private_mark_meta then\n" +
+			"      private = true\n" +
+			"    elseif (testOnlyPrivate == 0) and (meta == exact_mark_meta or meta == generic_mark_meta) then\n" +
+			"      local types = csharp.make_array('System.Type', #v)\n" +
+			"      for j, t in ipairs(v) do\n" +
+			"        types[j-1] = csharp.get_type(t)\n" +
+			"      end\n" +
+			"      if meta == exact_mark_meta then\n" +
+			"        exact = types\n" +
+			"      else\n" +
+			"        generic = types\n" +
+			"      end\n" +
+			"    end\n" +
+			"  end\n" +
+			"  return name, private, exact, generic\n" +
+			"end\n" +
+			"return mark_private, mark_exact, mark_generic, test_privillage";
+		internal LuaFunction testPrivillage;
 
 		const string kLuaStub_ErrorObject =
 			"local error_meta = { __tostring = function(e) return e.message end }\n" +
@@ -306,60 +336,85 @@ namespace lua
 		}
 
 		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int GetTypeFromString(IntPtr L)
+		{
+			if (Api.lua_isstring(L, 1))
+			{
+				var typeName = Api.lua_tostring(L, 1);
+				var typeObj = GetTypeFromString(typeName);
+				if (typeObj != null)
+				{
+					PushObjectInternal(L, typeObj);
+					return 1;
+				}
+			}
+			Api.lua_pushnil(L);
+			return 1;
+		}
+
+		static Type GetTypeFromString(string typeName)
+		{
+			if (typeName == "string")
+			{
+				return typeof(string);
+			}
+			else if (typeName == "int")
+			{
+				return typeof(int);
+			}
+			else if (typeName == "float")
+			{
+				return typeof(float);
+			}
+			else if (typeName == "double")
+			{
+				return typeof(double);
+			}
+			else if (typeName == "long")
+			{
+				return typeof(long);
+			}
+			else if (typeName == "byte")
+			{
+				return typeof(byte);
+			}
+			else if (typeName == "char")
+			{
+				return typeof(char);
+			}
+			else if (typeName == "uint")
+			{
+				return typeof(uint);
+			}
+			else if (typeName == "ulong")
+			{
+				return typeof(ulong);
+			}
+			else if (typeName == "object")
+			{
+				return typeof(object);
+			}
+            else
+			{
+				try
+				{
+					return loadType(typeName);
+				}
+				catch
+				{
+					return null;
+				}
+			}
+		}
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
 		static int MakeArray(IntPtr L)
 		{
 			Type typeObj;
 			if (Api.lua_isstring(L, 1))
 			{
 				var typeName = Api.lua_tostring(L, 1);
-				if (typeName == "string")
-				{
-					typeObj = typeof(string);
-				}
-				else if (typeName == "int")
-				{
-					typeObj = typeof(int);
-				}
-				else if (typeName == "float")
-				{
-					typeObj = typeof(float);
-				}
-				else if (typeName == "double")
-				{
-					typeObj = typeof(double);
-				}
-				else if (typeName == "long")
-				{
-					typeObj = typeof(long);
-				}
-				else if (typeName == "byte")
-				{
-					typeObj = typeof(byte);
-				}
-				else if (typeName == "char")
-				{
-					typeObj = typeof(char);
-				}
-				else if (typeName == "uint")
-				{
-					typeObj = typeof(uint);
-				}
-				else if (typeName == "ulong")
-				{
-					typeObj = typeof(ulong);
-				}
-				else
-				{
-					try
-					{
-						typeObj = loadType(typeName);
-					}
-					catch (Exception e)
-					{
-						PushErrorObject(L, e.Message);
-						return 1;
-					}
-				}
+				typeObj = GetTypeFromString(typeName);
 				if (typeObj == null)
 				{
 					PushErrorObject(L, string.Format("MakeArray error, typeName = '{0}' at argument 1 not found", typeName));
@@ -415,13 +470,23 @@ namespace lua
 			// Helpers
 			try
 			{
-				DoString(kLuaStub_PrivatePrivillage, 2, "priviate_privillage");
-				// -1 test, -2 create privillage
-				hasPrivatePrivillage = LuaFunction.MakeRefTo(this, -1);
-				var createPriviatePrivillage = LuaFunction.MakeRefTo(this, -2);
-				csharp["private_privillage"] = createPriviatePrivillage;
-				createPriviatePrivillage.Dispose();
-				Api.lua_pop(L, 2); // pop
+				DoString(kLuaStub_Privillage, 4, "privillage");
+				// "return mark_private, mark_exact, mark_generic, test_privillage";
+				testPrivillage = LuaFunction.MakeRefTo(this, -1);
+				var markGeneric = LuaFunction.MakeRefTo(this, -2);
+				var markExact = LuaFunction.MakeRefTo(this, -3);
+				var markPrivate = LuaFunction.MakeRefTo(this, -4);
+
+				csharp["p_private"] = markPrivate;
+				markPrivate.Dispose();
+
+				csharp["p_exact"] = markExact;
+				markExact.Dispose();
+
+				csharp["p_generic"] = markGeneric;
+				markGeneric.Dispose();
+
+				Api.lua_pop(L, 4); // pop
 
 				DoString(kLuaStub_TypeOf, 2, "typeof");
 				// -1 isIndexingTypeObject, -2 typeof
@@ -532,8 +597,8 @@ namespace lua
 			addPath.Dispose();
 			addPath = null;
 
-			hasPrivatePrivillage.Dispose();
-			hasPrivatePrivillage = null;
+			testPrivillage.Dispose();
+			testPrivillage = null;
 
 			isIndexingTypeObject.Dispose();
 			isIndexingTypeObject = null;
@@ -727,7 +792,8 @@ namespace lua
 				new Api.luaL_Reg("_break", _Break),
 				new Api.luaL_Reg("make_array", MakeArray),
 				new	Api.luaL_Reg("to_enum",	ToEnum),
-				new	Api.luaL_Reg("print", Print)
+				new Api.luaL_Reg("get_type", GetTypeFromString),
+                new	Api.luaL_Reg("print", Print)
 			};
 			Api.luaL_newlib(L, regs);
 			return 1;
@@ -1935,49 +2001,65 @@ namespace lua
 		static MethodCache MatchMethod(IntPtr L, 
 			Type invokingType, Type type, string methodName, string mangledName, bool invokingStaticMethod,
 			ref object target, int argStart, int[] luaArgTypes,
-			bool hasPrivatePrivillage)
+			bool hasPrivatePrivillage,
+			Type[] exactParamTypes)
 		{
 			System.Reflection.MethodBase method;
 			var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
 			if (hasPrivatePrivillage)
 				flags |= System.Reflection.BindingFlags.NonPublic;
-			var members = type.GetMember(methodName, flags);
-			var score = Int32.MinValue;
+
 			System.Reflection.MethodBase selected = null;
 			System.Reflection.ParameterInfo[] parameters = null;
 			List<Exception> pendingExceptions = null;
-			foreach (var member in members)
+
+			if (exactParamTypes != null)
 			{
-				Assert(member.MemberType == System.Reflection.MemberTypes.Method, string.Format("{0} is not a Method.", methodName));
-				var m = (System.Reflection.MethodInfo)member;
-				if (m.IsStatic)
+				var mi = type.GetMethod(methodName, flags, null, exactParamTypes, null);
+				if (mi != null)
 				{
-					if (!invokingStaticMethod)
+					selected = mi;
+					parameters = selected.GetParameters();
+				}
+			}
+			else
+			{
+				var members = type.GetMember(methodName, System.Reflection.MemberTypes.Method, flags);
+				var score = Int32.MinValue;
+
+				foreach (var member in members)
+				{
+					Assert(member.MemberType == System.Reflection.MemberTypes.Method, string.Format("{0} is not a Method.", methodName));
+					var m = (System.Reflection.MethodInfo)member;
+					if (m.IsStatic)
 					{
-						Assert(false, string.Format("invoking static method {0} with incorrect syntax.", m.ToString()));
+						if (!invokingStaticMethod)
+						{
+							Assert(false, string.Format("invoking static method {0} with incorrect syntax.", m.ToString()));
+						}
+						target = null;
 					}
-					target = null;
-				}
-				else
-				{
-					if (invokingStaticMethod)
+					else
 					{
-						Assert(false, string.Format("invoking non-static method {0} with incorrect syntax.", m.ToString()));
+						if (invokingStaticMethod)
+						{
+							Assert(false, string.Format("invoking non-static method {0} with incorrect syntax.", m.ToString()));
+						}
 					}
-				}
-				try
-				{
-					MatchingParameters(L, argStart, m, luaArgTypes, ref score, ref selected, ref parameters);
-				}
-				catch (System.Reflection.AmbiguousMatchException e)
-				{
-					throw e;
-				}
-				catch (Exception e)
-				{
-					if (pendingExceptions == null)
-						pendingExceptions = new List<Exception>();
-					pendingExceptions.Add(e);
+					try
+					{
+						MatchingParameters(L, argStart, m, luaArgTypes, ref score, ref selected, ref parameters);
+					}
+					catch (System.Reflection.AmbiguousMatchException e)
+					{
+						throw e;
+					}
+					catch (Exception e)
+					{
+						if (pendingExceptions == null)
+							pendingExceptions = new List<Exception>();
+						pendingExceptions.Add(e);
+					}
 				}
 			}
 			method = selected;
@@ -1989,7 +2071,7 @@ namespace lua
 			if (type != typeof(object))
 			{
 				// search into parent
-				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage);
+				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage, exactParamTypes);
 			}
 			else
 			{
@@ -2016,17 +2098,23 @@ namespace lua
 			var obj = ObjectAtInternal(L, Api.lua_upvalueindex(2));
 			Assert(obj != null, "invoking target not found at upvalueindex(2)");
 			string methodName;
-			var hasPriviatePrivillage = false;
+			bool hasPriviatePrivillage = false;
+			Type[] exactTypes = null;
+			Type[] genericTypes = null;
+			var host = CheckHost(L);
 			if (Api.lua_istable(L, Api.lua_upvalueindex(3)))
 			{
-				hasPriviatePrivillage = true; // must be private privillage
-				Api.lua_rawgeti(L, Api.lua_upvalueindex(3), 1);
-				if (!Api.luaL_teststring_strict(L, -1, out methodName))
+				using (var p = LuaTable.MakeRefTo(host, Api.lua_upvalueindex(3)))
 				{
-					Api.lua_pop(L, 1);
-					throw new ArgumentException("expected string (private_privillage)", "methodName (upvalueindex(3))");
+					var testOnlyPrivate = 0;
+					using (var privillageTable = host.testPrivillage.InvokeMultiRet(p, testOnlyPrivate))
+					{
+						methodName = (string)privillageTable[1];
+						hasPriviatePrivillage = (bool)privillageTable[2];
+						exactTypes = (Type[])privillageTable[3];
+						genericTypes = (Type[])privillageTable[4];
+					}
 				}
-				Api.lua_pop(L, 1);
 			}
 			else if (!Api.luaL_teststring_strict(L, Api.lua_upvalueindex(3), out methodName))
 			{
@@ -2102,13 +2190,13 @@ namespace lua
 				type = obj.GetType();
 			}
 
-			var mangledName = CheckHost(L).Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
+			var mangledName = host.Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
 
 			var mc = GetMethodFromCache(type, mangledName);
 			if (mc == null)
 			{
 				// match method	throws not matching exception
-				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage);
+				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage, exactTypes);
 			}
 
 			var top = Api.lua_gettop(L);
@@ -2515,53 +2603,9 @@ namespace lua
 
 		internal static object ConvertTo(object value, Type type)
 		{
-			if (type == typeof(int))
+			if (value.GetType() == type)
 			{
-				return Convert.ToInt32(value);
-			}
-			else if (type == typeof(float))
-			{
-				return Convert.ToSingle(value);
-			}
-			else if (type == typeof(long))
-			{
-				return Convert.ToInt64(value);
-			}
-			else if (type == typeof(double))
-			{
-				return Convert.ToDouble(value);
-			}
-			else if (type == typeof(short))
-			{
-				return Convert.ToInt16(value);
-			}
-			else if (type == typeof(uint))
-			{
-				return Convert.ToUInt32(value);
-			}
-			else if (type == typeof(ulong))
-			{
-				return Convert.ToUInt64(value);
-			}
-			else if (type == typeof(ushort))
-			{
-				return Convert.ToUInt16(value);
-			}
-			else if (type == typeof(char))
-			{
-				return Convert.ToChar(value);
-			}
-			else if (type == typeof(byte))
-			{
-				return Convert.ToByte(value);
-			}
-			else if (type == typeof(sbyte))
-			{
-				return Convert.ToSByte(value);
-			}
-			else if (type == typeof(decimal))
-			{
-				return Convert.ToDecimal(value);
+				return value;
 			}
 			else if (type == typeof(System.Action))
 			{
@@ -2587,6 +2631,10 @@ namespace lua
 				var converted = LuaFunction.ToDelegate(type, f);
 				f.Dispose();
 				return converted;
+			}
+			if (value is System.Type && type is System.Type)
+			{
+				return value;
 			}
 			return Convert.ChangeType(value, type);
 		}

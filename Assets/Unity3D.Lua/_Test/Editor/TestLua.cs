@@ -1371,6 +1371,16 @@ namespace lua.test
 			}
 		}
 
+		[Test]
+		public void TestFuncOverloading_Ambiguous_ExactMatch()
+		{
+			var t = new TestOverloading4();
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[{csharp.p_exact('string', 'string', 'object'), 'Func'}](d, 'a', 'b', 20) end"))
+			{
+				Assert.AreEqual(10, f.Invoke1(t));
+			}
+		}
+
 		class TestOverloading5
 		{
 			public int Func(int a, int b , int c)  // 30
@@ -2065,12 +2075,17 @@ namespace lua.test
 		public void TestPrivatePrivillage()
 		{
 			var t = new PrivatePrivillage();
-			using (var f = LuaFunction.NewFunction(L, "function(d) return d[csharp.private_privillage('Bar')] end"))
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[{csharp.p_private(), 'Bar'}] end"))
 			{
 				Assert.AreEqual(84, f.Invoke1(t));
 			}
+		}
 
-			using (var f = LuaFunction.NewFunction(L, "function(d) return d[csharp.private_privillage('Foo')](d) end"))
+		[Test]
+		public void TestPrivatePrivillage2()
+		{
+			var t = new PrivatePrivillage();
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[{csharp.p_private(), 'Foo'}](d) end"))
 			{
 				Assert.AreEqual(42, f.Invoke1(t));
 			}
@@ -2131,24 +2146,19 @@ namespace lua.test
 				return System.Activator.CreateInstance<T>();
 			}
 
-			public void Foo()
+			public int Foo(int a)
 			{
+				return a;
 			}
-		}
 
-		[Test]
-		public void TestGenericMethod()
-		{
-			// "csharp.InvokeGeneric(t, 'Foo', {intType}, {10})"; or sth like this
-
-
-
-			// in C#
-			// int Test::Foo(Action<int, long> complete) { complete(1, 2); }
-			// to call Foo in Lua
-			// t:Foo(csharp.to_action('int', 'long', function(a, b) ... end)
+			public int Foo(decimal a)
+			{
+				return (int)a;
+			}
 
 		}
+
+
 
 
 		class TestB
@@ -2204,5 +2214,6 @@ namespace lua.test
 				Assert.AreEqual(42, f.Invoke1(new TestB()));
 			}
 		}
-    }
+
+	}
 }

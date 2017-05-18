@@ -194,24 +194,20 @@ namespace lua
 				var host = Lua.CheckHost(L);
 				using (var p = LuaTable.MakeRefTo(host, 2))
 				{
-					var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
-					if (hasPrivillage)
-					{
-						Api.lua_rawgeti(L, 2, 1);
-						var name = Api.lua_tostring(L, -1);
-						Api.lua_pop(L, 1);
-						return Lua.GetMember(L, thisObject, typeObject, name, hasPrivatePrivillage: true);
-					}
 					var isGettingTypeObject = (bool)host.isIndexingTypeObject.Invoke1(p);
 					if (isGettingTypeObject)
 					{
-						// type = csharp.typeof(d) --> d[csharp.type_object_meta]
 						Lua.PushObjectInternal(L, typeObject);
 						return 1;
 					}
+					using (var ret = host.testPrivillage.InvokeMultiRet(p))
+					{
+						var name = (string)ret[1];
+						var hasPrivatePrivillage = (bool)ret[2];
+						return Lua.GetMember(L, thisObject, typeObject, name, hasPrivatePrivillage: hasPrivatePrivillage);
+					}
+			
 				}
-				Lua.PushErrorObject(L, "attempt to indexing meaningless lua table");
-				return 1;
 			}
 			else
 			{
@@ -275,12 +271,10 @@ namespace lua
 				var host = Lua.CheckHost(L);
 				using (var p = LuaTable.MakeRefTo(host, 2))
 				{
-					var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
-					if (hasPrivillage)
+					using (var ret = host.testPrivillage.InvokeMultiRet(p))
 					{
-						Api.lua_rawgeti(L, 2, 1);
-						var name = Api.lua_tostring(L, -1);
-						Api.lua_pop(L, 1);
+						var name = (string)ret[1];
+						var hasPrivillage = (bool)ret[2];
 						Lua.SetMember(L, thisObject, typeObject, name, Lua.ValueAtInternal(L, 3), hasPrivatePrivillage: true);
 					}
 				}
