@@ -2158,6 +2158,11 @@ namespace lua.test
 				complete(10, "a");
 				return 42;
 			}
+
+			public int Bar(System.Func<int, int, int> func)
+			{
+				return func(10, 32);
+			}
 		}
 
 		[Test]
@@ -2174,17 +2179,30 @@ namespace lua.test
 			}
 		}
 
-		// [Test]
+		[Test]
 		public void TestGenericAction()
 		{
 			L.Import(typeof(UnityEngine.Debug), "Debug");
 			using (var f = LuaFunction.NewFunction(L,
 				"function(d)\n"	+
-				"  --return d:Foo(csharp.to_action('int', 'long', function(a, b) Debug.Log(tostring(a) .. b) end)) end\n" + 
+				"  return d:Foo(function(a, b) Debug.Log(tostring(a) .. b) end)\n" + 
 				"end"))
 			{
 				Assert.AreEqual(42, f.Invoke1(new TestB()));
 			}
 		}
-	}
+
+		[Test]
+		public void TestGenericFunc()
+		{
+			L.Import(typeof(UnityEngine.Debug), "Debug");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n"	+
+				"  return d:Bar(function(a, b) return a+b end)\n" + 
+				"end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(new TestB()));
+			}
+		}
+    }
 }

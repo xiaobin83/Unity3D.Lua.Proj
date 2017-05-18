@@ -2504,22 +2504,7 @@ namespace lua
 			}
 			try
 			{
-				var propType = prop.PropertyType;
-				object converted;
-				IDisposable disposable;
-				if (TryConvertTo(propType, value, out converted, out disposable))
-				{
-					prop.SetValue(obj, converted, index);
-					if (disposable != null)
-					{
-						disposable.Dispose();
-					}
-				}
-				else
-				{
-					converted = System.Convert.ChangeType(value, propType);
-					prop.SetValue(obj, converted, index);
-				}
+				prop.SetValue(obj, ConvertTo(value, prop.PropertyType), index);
 			}
 			catch (ArgumentException ae)
 			{
@@ -2528,88 +2513,85 @@ namespace lua
 			}
 		}
 
-		internal static bool TryConvertTo(Type type, object value, out object converted, out IDisposable disposable)
+		internal static object ConvertTo(object value, Type type)
 		{
-			disposable = null;
 			if (type == typeof(int))
 			{
-				converted = Convert.ToInt32(value);
-				return true;
+				return Convert.ToInt32(value);
 			}
 			else if (type == typeof(float))
 			{
-				converted = Convert.ToSingle(value);
-				return true;
+				return Convert.ToSingle(value);
 			}
 			else if (type == typeof(long))
 			{
-				converted = Convert.ToInt64(value);
-				return true;
+				return Convert.ToInt64(value);
 			}
 			else if (type == typeof(double))
 			{
-				converted = Convert.ToDouble(value);
-				return true;
+				return Convert.ToDouble(value);
 			}
 			else if (type == typeof(short))
 			{
-				converted = Convert.ToInt16(value);
-				return true;
+				return Convert.ToInt16(value);
 			}
 			else if (type == typeof(uint))
 			{
-				converted = Convert.ToUInt32(value);
-				return true;
+				return Convert.ToUInt32(value);
 			}
 			else if (type == typeof(ulong))
 			{
-				converted = Convert.ToUInt64(value);
-				return true;
+				return Convert.ToUInt64(value);
 			}
 			else if (type == typeof(ushort))
 			{
-				converted = Convert.ToUInt16(value);
-				return true;
+				return Convert.ToUInt16(value);
 			}
 			else if (type == typeof(char))
 			{
-				converted = Convert.ToChar(value);
-				return true;
+				return Convert.ToChar(value);
 			}
 			else if (type == typeof(byte))
 			{
-				converted = Convert.ToByte(value);
-				return true;
+				return Convert.ToByte(value);
 			}
 			else if (type == typeof(sbyte))
 			{
-				converted = Convert.ToSByte(value);
-				return true;
+				return Convert.ToSByte(value);
 			}
 			else if (type == typeof(decimal))
 			{
-				converted = Convert.ToDecimal(value);
-				return true;
+				return Convert.ToDecimal(value);
 			}
 			else if (type == typeof(System.Action))
 			{
 				var f = (LuaFunction)value;
-				disposable = f;
-				converted = LuaFunction.ToAction(f);
-				return true;
+				var converted = LuaFunction.ToAction(f);
+				f.Dispose();
+				return converted;
 			}
 			else if (type == typeof(UnityEngine.Events.UnityAction))
 			{
 				var f = (LuaFunction)value;
-				disposable = f;
-				converted = LuaFunction.ToUnityAction(f);
-				return true;
+				var converted = LuaFunction.ToUnityAction(f);
+				f.Dispose();
+				return converted;
 			}
-			converted = null;
-			return false;
+			else if (type == typeof(LuaFunction))
+			{
+				return (LuaFunction)value;
+			}
+			else if (typeof(System.Delegate).IsAssignableFrom(type))
+			{
+				var f = (LuaFunction)value;
+				var converted = LuaFunction.ToDelegate(type, f);
+				f.Dispose();
+				return converted;
+			}
+			return Convert.ChangeType(value, type);
 		}
 
-		internal static void SetMember(IntPtr L, object thisObject, Type type, string memberName, object value)
+		internal static void SetMember(IntPtr L, object thisObject, Type type, string memberName, object value, bool hasPrivatePrivillage)
 		{
 			if (!type.IsClass && !type.IsAnsiClass)
 			{
@@ -2619,7 +2601,10 @@ namespace lua
 			System.Reflection.MemberInfo member;
 			if (!GetMemberFromCache(type, memberName, out member))
 			{
-				var members = type.GetMember(memberName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance);
+				var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
+				if (hasPrivatePrivillage)
+					flags |= System.Reflection.BindingFlags.NonPublic;
+				var members = type.GetMember(memberName, flags);
 				if (members.Length > 0)
 				{
 					member = members[0];
@@ -2639,42 +2624,12 @@ namespace lua
 			else if (member.MemberType == System.Reflection.MemberTypes.Field)
 			{
 				var field = (System.Reflection.FieldInfo)member;
-				var fieldType = field.FieldType;
-				object converted;
-				IDisposable disposable;
-				if (TryConvertTo(fieldType, value, out converted, out disposable))
-				{
-					field.SetValue(thisObject, converted);
-					if (disposable != null)
-					{
-						disposable.Dispose();
-					}
-				}
-				else
-				{
-					converted = System.Convert.ChangeType(value, fieldType);
-					field.SetValue(thisObject, converted);
-				}
+				field.SetValue(thisObject, ConvertTo(value, field.FieldType));
 			}
 			else if (member.MemberType == System.Reflection.MemberTypes.Property)
 			{
 				var prop = (System.Reflection.PropertyInfo)member;
-				var propType = prop.PropertyType;
-				object converted;
-				IDisposable disposable;
-				if (TryConvertTo(propType, value, out converted, out disposable))
-				{
-					prop.SetValue(thisObject, converted, null);
-					if (disposable != null)
-					{
-						disposable.Dispose();
-					}
-				}
-				else
-				{
-					converted = System.Convert.ChangeType(value, propType);
-					prop.SetValue(thisObject, converted, null);
-				}
+				prop.SetValue(thisObject, ConvertTo(value, prop.PropertyType), null);
 			}
 			else
 			{

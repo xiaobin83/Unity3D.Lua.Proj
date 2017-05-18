@@ -259,22 +259,7 @@ namespace lua
 					var array = (System.Array)thisObject;
 					var value = Lua.ValueAtInternal(L, 3);
 					var index = (int)Api.lua_tointeger(L, 2);
-					var elemType = typeObject.GetElementType();
-					object converted;
-					IDisposable disposable;
-					if (Lua.TryConvertTo(elemType, value, out converted, out disposable))
-					{
-						array.SetValue(converted, index);
-						if (disposable != null)
-						{
-							disposable.Dispose();
-						}
-					}
-					else
-					{
-						converted = System.Convert.ChangeType(value, elemType);
-						array.SetValue(converted, index);
-					}
+					array.SetValue(Lua.ConvertTo(value, typeObject.GetElementType()), index);
 				}
 				else
 				{
@@ -283,7 +268,22 @@ namespace lua
 			}
 			else if (Api.lua_isstring(L, 2))
 			{
-				Lua.SetMember(L, thisObject, typeObject, Api.lua_tostring(L, 2), Lua.ValueAtInternal(L, 3));
+				Lua.SetMember(L, thisObject, typeObject, Api.lua_tostring(L, 2), Lua.ValueAtInternal(L, 3), hasPrivatePrivillage: false);
+			}
+			else if (Api.lua_istable(L, 2))
+			{
+				var host = Lua.CheckHost(L);
+				using (var p = LuaTable.MakeRefTo(host, 2))
+				{
+					var hasPrivillage = (bool)host.hasPrivatePrivillage.Invoke1(p);
+					if (hasPrivillage)
+					{
+						Api.lua_rawgeti(L, 2, 1);
+						var name = Api.lua_tostring(L, -1);
+						Api.lua_pop(L, 1);
+						Lua.SetMember(L, thisObject, typeObject, name, Lua.ValueAtInternal(L, 3), hasPrivatePrivillage: true);
+					}
+				}
 			}
 			else
 			{
