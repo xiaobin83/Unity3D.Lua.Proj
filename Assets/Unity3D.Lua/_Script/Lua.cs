@@ -2002,7 +2002,8 @@ namespace lua
 			Type invokingType, Type type, string methodName, string mangledName, bool invokingStaticMethod,
 			ref object target, int argStart, int[] luaArgTypes,
 			bool hasPrivatePrivillage,
-			Type[] exactParamTypes, Type[] genericParamTypes)
+			Type[] exactParamTypes, Type[] genericParamTypes,
+			bool dontCache)
 		{
 			System.Reflection.MethodBase method;
 			var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
@@ -2012,7 +2013,6 @@ namespace lua
 			System.Reflection.MethodBase selected = null;
 			System.Reflection.ParameterInfo[] parameters = null;
 			List<Exception> pendingExceptions = null;
-			var dontCache = false;
 
 			if (exactParamTypes != null)
 			{
@@ -2021,7 +2021,6 @@ namespace lua
 				{
 					selected = mi;
 					parameters = selected.GetParameters();
-					dontCache = true;
 				}
 			}
 			else
@@ -2093,7 +2092,7 @@ namespace lua
 			if (type != typeof(object))
 			{
 				// search into parent
-				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage, exactParamTypes, genericParamTypes);
+				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage, exactParamTypes, genericParamTypes, dontCache);
 			}
 			else
 			{
@@ -2120,7 +2119,7 @@ namespace lua
 			var obj = ObjectAtInternal(L, Api.lua_upvalueindex(2));
 			Assert(obj != null, "invoking target not found at upvalueindex(2)");
 			string methodName;
-			bool hasPriviatePrivillage = false;
+			var hasPriviatePrivillage = false;
 			Type[] exactTypes = null;
 			Type[] genericTypes = null;
 			var host = CheckHost(L);
@@ -2215,11 +2214,13 @@ namespace lua
 			}
 
 			var mangledName = host.Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
-			var mc = GetMethodFromCache(type, mangledName);
+			MethodCache mc = null;
+			if (!dontCache)
+				mc = GetMethodFromCache(type, mangledName);
 			if (mc == null)
 			{
 				// match method	throws not matching exception
-				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage, exactTypes, genericTypes);
+				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage, exactTypes, genericTypes, dontCache);
 			}
 
 			var top = Api.lua_gettop(L);
@@ -2563,6 +2564,7 @@ namespace lua
 				Api.lua_pushboolean(L, isInvokingFromClass);      // upvalue 1 --> isInvokingFromClass
 				Api.lua_pushvalue(L, 1);                          // upvalue 2 --> userdata, first parameter of __index
 				Api.lua_pushvalue(L, 2);                          // upvalue 3 --> member name
+				// TODO: maybe i should	cache here, to avoid name manglings
 				Api.lua_pushcclosure(L, InvokeMethod, 3);         // return a wrapped lua_CFunction
 				return 1;
 			}
