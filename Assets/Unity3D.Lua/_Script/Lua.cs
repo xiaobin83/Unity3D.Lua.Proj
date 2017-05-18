@@ -2002,7 +2002,7 @@ namespace lua
 			Type invokingType, Type type, string methodName, string mangledName, bool invokingStaticMethod,
 			ref object target, int argStart, int[] luaArgTypes,
 			bool hasPrivatePrivillage,
-			Type[] exactParamTypes)
+			Type[] exactParamTypes, Type[] genericParamTypes)
 		{
 			System.Reflection.MethodBase method;
 			var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
@@ -2012,6 +2012,7 @@ namespace lua
 			System.Reflection.MethodBase selected = null;
 			System.Reflection.ParameterInfo[] parameters = null;
 			List<Exception> pendingExceptions = null;
+			var dontCache = false;
 
 			if (exactParamTypes != null)
 			{
@@ -2020,6 +2021,7 @@ namespace lua
 				{
 					selected = mi;
 					parameters = selected.GetParameters();
+					dontCache = true;
 				}
 			}
 			else
@@ -2029,7 +2031,6 @@ namespace lua
 
 				foreach (var member in members)
 				{
-					Assert(member.MemberType == System.Reflection.MemberTypes.Method, string.Format("{0} is not a Method.", methodName));
 					var m = (System.Reflection.MethodInfo)member;
 					if (m.IsStatic)
 					{
@@ -2046,32 +2047,53 @@ namespace lua
 							Assert(false, string.Format("invoking non-static method {0} with incorrect syntax.", m.ToString()));
 						}
 					}
-					try
+					if (m.ContainsGenericParameters && genericParamTypes != null)
 					{
-						MatchingParameters(L, argStart, m, luaArgTypes, ref score, ref selected, ref parameters);
+						var gps = m.GetGenericArguments();
+						if (gps.Length == genericParamTypes.Length)
+						{
+							selected = m.MakeGenericMethod(genericParamTypes);
+							parameters = m.GetParameters();
+							dontCache = true;
+							break;
+						}
 					}
-					catch (System.Reflection.AmbiguousMatchException e)
+					else
 					{
-						throw e;
-					}
-					catch (Exception e)
-					{
-						if (pendingExceptions == null)
-							pendingExceptions = new List<Exception>();
-						pendingExceptions.Add(e);
+						try
+						{
+							MatchingParameters(L, argStart, m, luaArgTypes, ref score, ref selected, ref parameters);
+						}
+						catch (System.Reflection.AmbiguousMatchException e)
+						{
+							throw e;
+						}
+						catch (Exception e)
+						{
+							if (pendingExceptions == null)
+								pendingExceptions = new List<Exception>();
+							pendingExceptions.Add(e);
+						}
 					}
 				}
 			}
 			method = selected;
 			if (method != null)
 			{
-				return CacheMethod(invokingType, mangledName, method, parameters);
+				if (dontCache)
+				{
+					return new MethodCache() { method = method, parameters = parameters, variadicArg = IsLastArgVariadic(parameters) };
+				}
+				else
+				{
+					return CacheMethod(invokingType, mangledName, method, parameters);
+				}
 			}
 
 			if (type != typeof(object))
 			{
 				// search into parent
-				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage, exactParamTypes);
+				return MatchMethod(L, invokingType, type.BaseType, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPrivatePrivillage, exactParamTypes, genericParamTypes);
 			}
 			else
 			{
@@ -2121,6 +2143,8 @@ namespace lua
 				throw new ArgumentException("expected string", "methodName (upvalueindex(3))");
 			}
 
+			var dontCache = exactTypes != null || genericTypes != null;
+			
 			int[] luaArgTypes = luaArgTypes_NoArgs;
 			var argStart = 1;
 			var numArgs = Api.lua_gettop(L);
@@ -2191,12 +2215,11 @@ namespace lua
 			}
 
 			var mangledName = host.Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
-
 			var mc = GetMethodFromCache(type, mangledName);
 			if (mc == null)
 			{
 				// match method	throws not matching exception
-				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage, exactTypes);
+				mc = MatchMethod(L, type, type, methodName, mangledName, invokingStaticMethod, ref target, argStart, luaArgTypes, hasPriviatePrivillage, exactTypes, genericTypes);
 			}
 
 			var top = Api.lua_gettop(L);

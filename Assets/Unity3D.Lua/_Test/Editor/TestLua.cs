@@ -2141,9 +2141,9 @@ namespace lua.test
 
 		class TestA
 		{
-			public T Foo<T>()
+			public T Foo<T>(double a)
 			{
-				return System.Activator.CreateInstance<T>();
+				return (T)System.Convert.ChangeType(a, typeof(T));
 			}
 
 			public int Foo(int a)
@@ -2155,9 +2155,17 @@ namespace lua.test
 			{
 				return (int)a;
 			}
-
 		}
 
+
+		[Test]
+		public void TestCallingGenericMethod()
+		{
+			using (var f = LuaFunction.NewFunction(L, "function(d) return d[{csharp.p_generic('int'), 'Foo'}](d, 20.0) end"))
+			{
+				Assert.AreEqual(20, f.Invoke1(new TestA()));
+			}
+		}
 
 
 
