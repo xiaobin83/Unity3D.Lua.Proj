@@ -2069,20 +2069,38 @@ namespace lua
 			}
 		}
 
+		internal enum InvocationFlags
+		{
+			Static = 1,
+			ExactMatch = 2,
+			GenericMethod = 4,
+		}
+
 		static int InvokeMethodInternal(IntPtr L)
 		{
-			// upvalue 1 --> isInvokingFromClass
+			// upvalue 1 --> invocation flags
 			// upvalue 2 --> userdata (host of metatable).
 			// upvalue 3 --> members
 			// upvalue 4 --> exactTypes
 			// upvalue 5 --> genericTypes
-			var isInvokingFromClass = Api.lua_toboolean(L, Api.lua_upvalueindex(1));
+			var invocationFlags = (InvocationFlags)Api.lua_tointeger(L, Api.lua_upvalueindex(1));
 			var obj = ObjectAtInternal(L, Api.lua_upvalueindex(2));
 			if (obj == null)
 				throw new LuaException("invoking target not found at upvalueindex(2)");
 			var members = (System.Reflection.MemberInfo[])ObjectAtInternal(L, Api.lua_upvalueindex(3));
-			var exactTypes = (Type[])ObjectAtInternal(L, Api.lua_upvalueindex(4));
-			var genericTypes = (Type[])ObjectAtInternal(L, Api.lua_upvalueindex(5));
+			Type[] exactTypes = null;
+			Type[] genericTypes = null;
+			var upvalueIndex = 4;
+			if ((invocationFlags & InvocationFlags.ExactMatch) != 0)
+			{
+				exactTypes = (Type[])ObjectAtInternal(L, Api.lua_upvalueindex(upvalueIndex));
+				++upvalueIndex;
+			}
+			if ((invocationFlags & InvocationFlags.GenericMethod) != 0)
+			{
+				genericTypes = (Type[])ObjectAtInternal(L, Api.lua_upvalueindex(upvalueIndex));
+			}
+
 
 			var argStart = 1;
 			var numArgs = Api.lua_gettop(L);
@@ -2123,7 +2141,7 @@ namespace lua
 
 			object target = null;
 			System.Type type = null;
-			if (isInvokingFromClass)
+			if ((invocationFlags & InvocationFlags.Static) != 0)
 			{
 				type = (System.Type)obj;
 				if (!invokingStaticMethod)
@@ -2588,27 +2606,30 @@ namespace lua
 			}
 			else if (member.MemberType == System.Reflection.MemberTypes.Method)
 			{
-				bool isInvokingFromClass = (obj == null);
-				Api.lua_pushboolean(L, isInvokingFromClass); // upvalue 1 --> isInvokingFromClass
-				Api.lua_pushvalue(L, 1);                     // upvalue 2 --> userdata, first parameter of __index
-				PushObjectInternal(L, members);              // upvalue 3 --> cached members
-				if (exactTypes != null)                      // upvalue 4 --> exactType
+				long invocationFlags = (obj == null) ? (long)InvocationFlags.Static : 0;
+				int upvalues = 3;
+				if (exactTypes != null)
 				{
-					PushObjectInternal(L, exactTypes);
-				}
-				else
-				{
-					Api.lua_pushnil(L);
+					invocationFlags |= (long)InvocationFlags.ExactMatch;
+					++upvalues;
 				}
 				if (genericTypes != null)
 				{
-					PushObjectInternal(L, genericTypes);     // upvalue 5 --> genericType
+					invocationFlags |= (long)InvocationFlags.GenericMethod;
+					++upvalues;
 				}
-				else
+				Api.lua_pushinteger(L, invocationFlags);     // upvalue 1 --> invocationFlags
+				Api.lua_pushvalue(L, 1);                     // upvalue 2 --> userdata, first parameter of __index
+				PushObjectInternal(L, members);              // upvalue 3 --> cached members
+				if (exactTypes != null)
 				{
-					Api.lua_pushnil(L);
+					PushObjectInternal(L, exactTypes);       // upvalue 4
 				}
-				Api.lua_pushcclosure(L, InvokeMethod, 5);    // return a wrapped lua_CFunction
+				if (genericTypes != null)
+				{
+					PushObjectInternal(L, genericTypes);     // upvalue 5
+				}
+				Api.lua_pushcclosure(L, InvokeMethod, upvalues);    // return a wrapped lua_CFunction
 				return 1;
 			}
 			else

@@ -369,13 +369,12 @@ namespace lua
 
 			var type = obj.GetType();
 
-			Api.lua_pushboolean(L, true); // upvalue 1 --> isInvokingFromClass
+			long invocationFlags = (long)Lua.InvocationFlags.Static;
+			Api.lua_pushinteger(L, invocationFlags); // upvalue 1 --> invocationFlags
 			Lua.PushObjectInternal(L, type);// upvalue 2 --> userdata (host of metatable).
 			var members = Lua.GetMembers(type, Api.lua_tostring(L, Api.lua_upvalueindex(1)), hasPrivatePrivillage: false);
 			Lua.PushObjectInternal(L, members); // upvalue 3 --> members
-			Api.lua_pushnil(L); // upvalue 4 -> exactType -> nil
-			Api.lua_pushnil(L); // upvalue 5 -> genericType -> nil
-			Api.lua_pushcclosure(L, Lua.InvokeMethod, 5);
+			Api.lua_pushcclosure(L, Lua.InvokeMethod, 3);
 			Api.lua_pushvalue(L, 1);
 			Api.lua_pushvalue(L, 2);
 			Lua.CallInternal(L, 2, 1);
@@ -404,18 +403,14 @@ namespace lua
 			var obj = Lua.UdataToObject(objectArg);
 			var type = obj.GetType();
 
-			// upvalue 1 --> isInvokingFromClass
+			// upvalue 1 --> invocationFlags
 			// upvalue 2 --> userdata (host of metatable).
 			// upvalue 3 --> members
- 			// upvalue 4 --> exactTypes -> nil
- 			// upvalue 5 --> genericTypes -> nil
-			Api.lua_pushboolean(L, true);
+			Api.lua_pushinteger(L, (long)Lua.InvocationFlags.Static);
 			Lua.PushObjectInternal(L, type);
 			var members = Lua.GetMembers(type, Api.lua_tostring(L, Api.lua_upvalueindex(1)), hasPrivatePrivillage: false);
 			Lua.PushObjectInternal(L, members);
-			Api.lua_pushnil(L);
-			Api.lua_pushnil(L);
-			Api.lua_pushcclosure(L, Lua.InvokeMethod, 5);
+			Api.lua_pushcclosure(L, Lua.InvokeMethod, 3);
 			Api.lua_pushvalue(L, 1);
 			Lua.CallInternal(L, 1, 1);
 			return 1;

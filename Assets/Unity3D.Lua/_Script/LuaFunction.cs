@@ -410,15 +410,11 @@ namespace lua
 			var refToDelegate = Lua.MakeRefToInternal(L, func);
 			try
 			{
-
-				bool isInvokingFromClass = false;
-				Api.lua_pushboolean(L, isInvokingFromClass); // upvalue 1 --> isInvokingFromClass
+				Api.lua_pushinteger(L, 0); // upvalue 1 --> invocationFlags
 				Lua.PushRefInternal(L, refToDelegate); // upvalue 2 --> userdata, first parameter of __index
 				var members = Lua.GetMembers(func.GetType(), "Invoke", hasPrivatePrivillage: false);
 				Lua.PushObjectInternal(L, members); // upvalue 3 --> members
-				Api.lua_pushnil(L); // upvalue 4 -> exactType -> nil
-				Api.lua_pushnil(L); // upvalue 5 -> genericType -> nil
-				Api.lua_pushcclosure(L, Lua.InvokeMethod, 5);
+				Api.lua_pushcclosure(L, Lua.InvokeMethod, 3);
 				Lua.PushRefInternal(L, refToDelegate);
 				for (int i = 1; i <= numArgs; ++i)
 				{
