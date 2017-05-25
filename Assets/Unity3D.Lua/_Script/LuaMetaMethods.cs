@@ -347,25 +347,36 @@ namespace lua
 
 		static int MetaBinaryOpFunctionInternal(lua_State L)
 		{
-			if (Api.lua_rawequal(L, 1, 2))
+			var op = (Lua.BinaryOp)Api.lua_tointeger(L, Api.lua_upvalueindex(2));
+			if (op == Lua.BinaryOp.op_Equality)
 			{
-				Api.lua_pushboolean(L, true);
-				return 1;
+				if (Api.lua_rawequal(L, 1, 2))
+				{
+					Api.lua_pushboolean(L, true);
+					return 1;
+				}
 			}
 
-			var objectArg = Api.luaL_testudata(L, 1, Lua.objectMetaTable); // test first one
+			var objectArg = Api.luaL_testudata(L, 1, Lua.objectMetaTable);
 			var objectArg2 = Api.luaL_testudata(L, 2, Lua.objectMetaTable);
-			if (objectArg == IntPtr.Zero || objectArg2 == IntPtr.Zero)
+			if (objectArg == IntPtr.Zero && objectArg2 == IntPtr.Zero)
 			{
 				throw new LuaException(string.Format("Binary op {0} called on unexpected values.", Api.lua_tostring(L, Api.lua_upvalueindex(1))));
 			}
-			var obj = Lua.UdataToObject(objectArg);
-			var obj2 = Lua.UdataToObject(objectArg2);
-			if (obj == obj2)
+			object obj1 = null, obj2 = null;
+			if (objectArg != IntPtr.Zero) obj1 = Lua.UdataToObject(objectArg);
+			if (objectArg2 != IntPtr.Zero) obj2 = Lua.UdataToObject(objectArg2);
+			if (op == Lua.BinaryOp.op_Equality)
 			{
-				Api.lua_pushboolean(L, true);
-				return 1;
+				if (obj1 == obj2)
+				{
+					Api.lua_pushboolean(L, true);
+					return 1;
+				}
 			}
+			var obj = obj1;
+			if (obj == null)
+				obj = obj2;
 
 			var type = obj.GetType();
 

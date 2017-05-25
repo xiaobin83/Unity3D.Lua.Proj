@@ -927,6 +927,29 @@ namespace lua.test
 			Api.lua_pop(L, 2);
 
 
+			Api.luaL_dostring(L, "return function(a, b) return a * b end");
+			Api.lua_pushvalue(L, -1);
+			L.PushValue(new Vector3(1, 2, 3));
+			L.PushValue(2f);
+			L.Call(2, 1);
+			ret = (Vector3)L.ValueAt(-1);
+			Assert.AreEqual(2f, ret.x);
+			Assert.AreEqual(4f, ret.y);
+			Assert.AreEqual(6f, ret.z);
+			Api.lua_pop(L, 2);
+
+			Api.luaL_dostring(L, "return function(a, b) return a * b end");
+			Api.lua_pushvalue(L, -1);
+			L.PushValue(2f);
+			L.PushValue(new Vector3(1, 2, 3));
+			L.Call(2, 1);
+			ret = (Vector3)L.ValueAt(-1);
+			Assert.AreEqual(2f, ret.x);
+			Assert.AreEqual(4f, ret.y);
+			Assert.AreEqual(6f, ret.z);
+			Api.lua_pop(L, 2);
+
+
 			Api.luaL_dostring(L, "return function(a, b) return a - b end");
 			Api.lua_pushvalue(L, -1);
 			L.PushValue(new Vector3(1, 2, 3));

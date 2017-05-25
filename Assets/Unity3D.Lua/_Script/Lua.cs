@@ -2830,7 +2830,8 @@ namespace lua
 				foreach (var op in binaryOps)
 				{
 					Api.lua_pushstring(L, op.Value.ToString());
-					Api.lua_pushcclosure(L, MetaMethod.MetaBinaryOpFunction, 1);
+					Api.lua_pushinteger(L, (long)op.Value);
+					Api.lua_pushcclosure(L, MetaMethod.MetaBinaryOpFunction, 2);
 					Api.lua_setfield(L, -2, op.Key);
 				}
 
