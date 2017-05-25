@@ -292,7 +292,7 @@ namespace lua
 		[DllImport(LIBNAME, CallingConvention = CallingConvention.Cdecl)]
 		public static extern void lua_pushlightuserdata(IntPtr L, IntPtr p);
 		/*
-		LUA_API	int	  (lua_pushthread) (IntPtr *L);
+		LUA_API int (lua_pushthread) (IntPtr *L);
 		*/
 
 

@@ -2281,5 +2281,27 @@ namespace lua.test
 			}
 		}
 
+
+		class TestIntPtr
+		{
+			public int Foo(System.IntPtr p)
+			{
+				return 22 + p.ToInt32();
+			}
+			public System.IntPtr Bar()
+			{
+				return new System.IntPtr(20);
+			}
+		}
+		[Test]
+		public void TestIntPtrAsArgument()
+		{
+			var p = new TestIntPtr();
+			using (var f = LuaFunction.NewFunction(L,
+				"function(p) return p:Foo(p:Bar()) end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(p));
+			}
+		}
 	}
 }

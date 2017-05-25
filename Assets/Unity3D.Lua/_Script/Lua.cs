@@ -1381,6 +1381,12 @@ namespace lua
 				|| type == typeof(System.Decimal));
 		}
 
+		static bool IsPointerType(System.Type type)
+		{
+			return type == typeof(System.IntPtr)
+				|| type == typeof(System.UIntPtr);
+		}
+
 		static System.Reflection.ParameterInfo IsLastArgVariadic(System.Reflection.ParameterInfo[] args)
 		{
 			if (args.Length > 0)
@@ -1407,6 +1413,10 @@ namespace lua
 			if (IsNumericType(type))
 			{
 				if (luaArgType == Api.LUA_TNUMBER) return 10;
+			}
+			else if (IsPointerType(type))
+			{
+				if (luaArgType == Api.LUA_TLIGHTUSERDATA) return 10;
 			}
 			else if (type == typeof(string))
 			{
@@ -1679,6 +1689,17 @@ namespace lua
 					break;
 				case Api.LUA_TUSERDATA:
 					actualArgs.SetValue(ObjectAtInternal(L, luaArgIdx), idx);
+					break;
+				case Api.LUA_TLIGHTUSERDATA:
+					var ptr = Api.lua_touserdata(L, luaArgIdx);
+					if (type == typeof(System.UIntPtr))
+					{
+						actualArgs.SetValue(new System.UIntPtr((ulong)ptr.ToInt64()), idx);
+					}
+					else
+					{
+						actualArgs.SetValue(ptr, idx);
+					}
 					break;
 				default:
 					if (type != typeof(string) && type != typeof(System.Object))
