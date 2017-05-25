@@ -911,6 +911,33 @@ namespace lua.test
 		}
 
 		[Test]
+		public void TestOperatorEquality()
+		{
+			Api.lua_settop(L, 0);
+
+			Api.luaL_dostring(L, "return function(a, b) return a == b end");
+			Api.lua_pushvalue(L, -1);
+			L.PushValue(new Vector3(1, 2, 3));
+			Api.lua_pushvalue(L, -1);
+			L.Call(2, 1);
+			var bret = (bool)L.ValueAt(-1);
+			Assert.True(bret);
+			Api.lua_pop(L, 2);
+
+
+			Api.luaL_dostring(L, "return function(a, b) return a == b end");
+			Api.lua_pushvalue(L, -1);
+			L.PushValue(new Vector3(1, 2, 3));
+			L.PushValue(new Vector3(1, 2, 3));
+			L.Call(2, 1);
+			bret = (bool)L.ValueAt(-1);
+			Assert.True(bret);
+			Api.lua_pop(L, 2);
+
+			Assert.AreEqual(0, Api.lua_gettop(L));
+		}
+
+		[Test]
 		public void TestOperator()
 		{
 			Api.lua_settop(L, 0);
@@ -949,6 +976,14 @@ namespace lua.test
 			Assert.AreEqual(6f, ret.z);
 			Api.lua_pop(L, 2);
 
+			Api.luaL_dostring(L, "return function(a, b) return a == b end");
+			Api.lua_pushvalue(L, -1);
+			L.PushValue(new Vector3(1, 2, 3));
+			Api.lua_pushvalue(L, -1);
+			L.Call(2, 1);
+			var bret = (bool)L.ValueAt(-1);
+			Assert.True(bret);
+			Api.lua_pop(L, 2);
 
 			Api.luaL_dostring(L, "return function(a, b) return a - b end");
 			Api.lua_pushvalue(L, -1);

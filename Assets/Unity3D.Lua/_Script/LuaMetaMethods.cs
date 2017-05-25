@@ -348,15 +348,6 @@ namespace lua
 		static int MetaBinaryOpFunctionInternal(lua_State L)
 		{
 			var op = (Lua.BinaryOp)Api.lua_tointeger(L, Api.lua_upvalueindex(2));
-			if (op == Lua.BinaryOp.op_Equality)
-			{
-				if (Api.lua_rawequal(L, 1, 2))
-				{
-					Api.lua_pushboolean(L, true);
-					return 1;
-				}
-			}
-
 			var objectArg = Api.luaL_testudata(L, 1, Lua.objectMetaTable);
 			var objectArg2 = Api.luaL_testudata(L, 2, Lua.objectMetaTable);
 			if (objectArg == IntPtr.Zero && objectArg2 == IntPtr.Zero)
@@ -368,7 +359,9 @@ namespace lua
 			if (objectArg2 != IntPtr.Zero) obj2 = Lua.UdataToObject(objectArg2);
 			if (op == Lua.BinaryOp.op_Equality)
 			{
-				if (obj1 == obj2)
+				if ((obj1 == obj2)
+					|| (obj1 != null && obj1.Equals(obj2))
+					|| (obj2 != null && obj2.Equals(obj1)))
 				{
 					Api.lua_pushboolean(L, true);
 					return 1;
