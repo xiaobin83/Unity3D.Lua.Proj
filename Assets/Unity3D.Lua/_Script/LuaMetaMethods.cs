@@ -372,11 +372,16 @@ namespace lua
 				obj = obj2;
 
 			var type = obj.GetType();
+			var opName = Api.lua_tostring(L, Api.lua_upvalueindex(1));
+			var	members	= Lua.GetMembers(type, opName, hasPrivatePrivillage: false);
+			if (members.Length == 0)
+			{
+				throw new LuaException(string.Format("{0} not found in type {1}", opName, type.ToString()));
+			}
 
 			long invocationFlags = (long)Lua.InvocationFlags.Static;
 			Api.lua_pushinteger(L, invocationFlags); // upvalue 1 --> invocationFlags
 			Lua.PushObjectInternal(L, type);// upvalue 2 --> userdata (host of metatable).
-			var members = Lua.GetMembers(type, Api.lua_tostring(L, Api.lua_upvalueindex(1)), hasPrivatePrivillage: false);
 			Lua.PushObjectInternal(L, members); // upvalue 3 --> members
 			Api.lua_pushcclosure(L, Lua.InvokeMethod, 3);
 			Api.lua_pushvalue(L, 1);
@@ -406,13 +411,18 @@ namespace lua
 				throw new LuaException(string.Format("Binary op {0} called on unexpected values.", Api.lua_tostring(L, Api.lua_upvalueindex(1))));
 			var obj = Lua.UdataToObject(objectArg);
 			var type = obj.GetType();
+			var opName = Api.lua_tostring(L, Api.lua_upvalueindex(1));
+			var members = Lua.GetMembers(type, opName, hasPrivatePrivillage: false);
+			if (members.Length == 0)
+			{
+				throw new LuaException(string.Format("{0} not found in type {1}", opName, type.ToString()));
+			}
 
 			// upvalue 1 --> invocationFlags
 			// upvalue 2 --> userdata (host of metatable).
 			// upvalue 3 --> members
 			Api.lua_pushinteger(L, (long)Lua.InvocationFlags.Static);
 			Lua.PushObjectInternal(L, type);
-			var members = Lua.GetMembers(type, Api.lua_tostring(L, Api.lua_upvalueindex(1)), hasPrivatePrivillage: false);
 			Lua.PushObjectInternal(L, members);
 			Api.lua_pushcclosure(L, Lua.InvokeMethod, 3);
 			Api.lua_pushvalue(L, 1);
