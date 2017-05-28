@@ -125,6 +125,12 @@ namespace lua
 					return (ReturnType)Lua.ConvertTo(func.Invoke1(arg1, arg2, arg3), typeof(ReturnType));
 				}
 
+
+				void ForAOTGeneration()
+				{
+					GenericAction<string, object>(string.Empty, null);
+				}
+
 				static System.Reflection.MemberInfo[] genericActions_;
 				static System.Reflection.MemberInfo[] genericActions
 				{

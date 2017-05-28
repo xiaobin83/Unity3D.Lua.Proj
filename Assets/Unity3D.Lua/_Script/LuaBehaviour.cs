@@ -25,6 +25,7 @@ using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.EventSystems;
 
 namespace lua
 {
@@ -121,6 +122,21 @@ namespace lua
 		[SerializeField]
 		[HideInInspector]
 		GameObject[] gameObjects;
+
+
+		[SerializeField]
+		[HideInInspector]
+		string[] eventKeys;
+
+		[Serializable]
+		public class Event : UnityEngine.Events.UnityEvent<string, object>
+		{
+		}
+		[SerializeField]
+		[HideInInspector]
+		Event[] events;
+
+
 
 		List<LuaInstanceBehaviour0> instanceBehaviours = new List<LuaInstanceBehaviour0>();
 
@@ -692,6 +708,24 @@ namespace lua
 			}
 			return null;
 		}
+
+		public Event FindEvent(string key)
+		{
+			var index = System.Array.FindIndex(eventKeys, (k) => k == key);
+			if (index != -1)
+				return GetEventAtIndex(index);
+			return null;
+		}
+
+		public Event GetEventAtIndex(int index)
+		{
+			if (index >= 0 && index < events.Length)
+			{
+				return events[index];
+			}
+			return null;
+		}
+
 
 		// https://docs.unity3d.com/Manual/ExecutionOrder.html
 		void UnloadLuaScript()

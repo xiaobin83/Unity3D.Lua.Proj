@@ -308,9 +308,11 @@ namespace lua
 
 
 		HashSet<string> gameObjectNames = new HashSet<string>();
+		HashSet<string> eventNames = new HashSet<string>();
 		void OnInspectorGUI_GameObjectMap()
 		{
 			gameObjectNames.Clear();
+			eventNames.Clear();
 
 			var serializedKeys = serializedObject.FindProperty("keys");
 			var serializedGameObjects = serializedObject.FindProperty("gameObjects");
@@ -330,7 +332,7 @@ namespace lua
 
 				propKey.stringValue = 
 					EditorGUILayout.TextField(
-						i.ToString() + ".", 
+						i.ToString() + ".",
 						propKey.stringValue, 
 						nameDuplicated ? errorTextFieldStyle : normalTextFieldStyle);
 				propGameObject.objectReferenceValue = 
@@ -338,7 +340,7 @@ namespace lua
 						propGameObject.objectReferenceValue,
 						typeof(GameObject),
 						allowSceneObjects: true);
-				if (GUILayout.Button("X"))
+				if (GUILayout.Button("X", GUILayout.Width(20)))
 				{
 					idToDelete = i;
 				}
@@ -362,10 +364,56 @@ namespace lua
 
 			if (GUILayout.Button("Attach New GameObject"))
 			{
-				Undo.RecordObject(target, "LuaBehaviour.RemoveGameObject");
+				Undo.RecordObject(target, "LuaBehaviour.AddGameObject");
 				++serializedKeys.arraySize;
 				++serializedGameObjects.arraySize;
 			}
+
+			serializedKeys = serializedObject.FindProperty("eventKeys");
+			var serializedEvents = serializedObject.FindProperty("events");
+
+			EditorGUILayout.BeginVertical();
+			idToDelete = -1;
+			hasDuplicatedName = false;
+			for (int i = 0; i < serializedKeys.arraySize; ++i)
+			{
+				var propKey = serializedKeys.GetArrayElementAtIndex(i);
+				var propEvent = serializedEvents.GetArrayElementAtIndex(i);
+
+				EditorGUILayout.BeginHorizontal();
+
+				var nameDuplicated = !eventNames.Add(propKey.stringValue);
+				hasDuplicatedName = hasDuplicatedName || nameDuplicated;
+
+				propKey.stringValue = 
+					EditorGUILayout.TextField(
+						i.ToString() + ".", 
+						propKey.stringValue, 
+						nameDuplicated ? errorTextFieldStyle : normalTextFieldStyle);
+				if (GUILayout.Button("X", GUILayout.Width(20)))
+				{
+					idToDelete = i;
+				}
+				EditorGUILayout.EndHorizontal();
+
+				EditorGUILayout.PropertyField(propEvent);
+			}
+			EditorGUILayout.EndVertical();
+
+			if (idToDelete != -1)
+			{
+				Undo.RecordObject(target, "LuaBehaviour.RemoveEvent");
+				serializedKeys.DeleteArrayElementAtIndex(idToDelete);
+				serializedGameObjects.DeleteArrayElementAtIndex(idToDelete);
+			}
+
+			if (GUILayout.Button("Add New Event"))
+			{
+				Undo.RecordObject(target, "LuaBehaviour.AddEvent");
+				++serializedKeys.arraySize;
+				++serializedEvents.arraySize;
+			}
+
 
 			serializedObject.ApplyModifiedProperties();
 		}
