@@ -204,6 +204,23 @@ namespace lua
 					{
 						var name = (string)ret[1];
 						var hasPrivatePrivillage = (bool)ret[2];
+						var retrievingNestedType = (bool)ret[5];
+						if (retrievingNestedType)
+						{
+							var flags = System.Reflection.BindingFlags.Public;
+							if (hasPrivatePrivillage)
+								flags |= System.Reflection.BindingFlags.NonPublic;
+							var nestedType = typeObject.GetNestedType(name, flags);
+							if (nestedType != null)
+							{
+								Lua.PushTypeInternal(L, nestedType);
+							}
+							else
+							{
+								Api.lua_pushnil(L);
+							}
+							return 1;
+						}
 						var exactTypes = (Type[])ret[3];
 						var genericTypes = (Type[])ret[4];
 						return Lua.GetMember(L, thisObject, typeObject, name, hasPrivatePrivillage, exactTypes, genericTypes);

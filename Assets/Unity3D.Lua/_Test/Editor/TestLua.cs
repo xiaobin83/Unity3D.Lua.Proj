@@ -2211,9 +2211,20 @@ namespace lua.test
 
 			public int Foo(decimal a)
 			{
+				AndroidJavaObject o;
 				return (int)a;
 			}
-		}
+
+
+			public T Bar<T>(int k)
+			{
+				return System.Activator.CreateInstance<T>();
+			}
+
+			public void Bar(int k)
+			{
+			}
+        }
 
 
 		[Test]
@@ -2224,6 +2235,17 @@ namespace lua.test
 				Assert.AreEqual(20, f.Invoke1(new TestA()));
 			}
 		}
+
+
+		[Test]
+		public void TestMatchingGenericMethod()
+		{
+			using (var f = LuaFunction.NewFunction(L, "function(d) d[{csharp.p_exact('int', 'System.Void'), 'Bar'}](d, 10) end"))
+			{
+				f.Invoke1(new TestA());
+			}
+		}
+
 
 
 
@@ -2302,6 +2324,29 @@ namespace lua.test
 			{
 				Assert.AreEqual(42, f.Invoke1(p));
 			}
+		}
+
+		class TTT
+		{
+			public class NestedTTT
+			{
+				public int Foo()
+				{
+					return 42;
+				}
+			}
+		}
+
+		[Test]
+		public void TestNestedType()
+		{
+			L.Import(typeof(TTT), "TTT");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(ttt) return ttt[{csharp.p_nested_type(), csharp.p_private(), 'NestedTTT'}]():Foo() end"))
+			{
+				Assert.AreEqual(42, f.Invoke1(new TTT()));
+			}
+
 		}
 	}
 }

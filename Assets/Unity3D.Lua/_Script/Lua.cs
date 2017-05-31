@@ -187,6 +187,8 @@ namespace lua
 		const string kLuaStub_Privillage =
 			"local private_mark_meta = {}\n" +
 			"local exact_mark_meta = {}\n" +
+			"local generic_mark_meta = {}\n" +
+			"local nested_type_mark_meta = {}\n" +
 			"local mark_private = function()\n" +
 			"  return setmetatable({}, private_mark_meta)\n" +
 			"end\n" +
@@ -196,17 +198,23 @@ namespace lua
 			"local mark_generic = function(...)\n" +
 			"  return setmetatable({...}, generic_mark_meta)\n" +
 			"end\n" +
+			"local mark_nested = function()\n" +
+			"  return setmetatable({}, nested_type_mark_meta)\n" +
+			"end\n" +
 			"local test_privillage = function(attr)\n" +
 			"  if #attr < 2 then error('incorrect privillage') end\n" +
 			"  local name = attr[#attr]\n" +
 			"  local private = false\n" +
 			"  local exact\n" +
 			"  local generic\n" +
+			"  local nested = false\n" + 
 			"  for i = 1, #attr - 1 do\n" +
 			"    local v = attr[i]\n" +
 			"    local meta = getmetatable(v)\n" +
 			"    if meta == private_mark_meta then\n" +
 			"      private = true\n" +
+			"    elseif meta == nested_type_mark_meta then\n" +
+			"      nested = true\n" +
 			"    elseif meta == exact_mark_meta or meta == generic_mark_meta then\n" +
 			"      local types = csharp.make_array('System.Type', #v)\n" +
 			"      for j, t in ipairs(v) do\n" +
@@ -219,9 +227,9 @@ namespace lua
 			"      end\n" +
 			"    end\n" +
 			"  end\n" +
-			"  return name, private, exact, generic\n" +
+			"  return name, private, exact, generic, nested\n" +
 			"end\n" +
-			"return mark_private, mark_exact, mark_generic, test_privillage";
+			"return mark_private, mark_exact, mark_generic, mark_nested, test_privillage";
 		internal LuaFunction testPrivillage;
 
 		const string kLuaStub_ErrorObject =
@@ -393,7 +401,7 @@ namespace lua
 			{
 				return typeof(object);
 			}
-            else
+			else
 			{
 				try
 				{
@@ -469,12 +477,13 @@ namespace lua
 			// Helpers
 			try
 			{
-				DoString(kLuaStub_Privillage, 4, "privillage");
+				DoString(kLuaStub_Privillage, 5, "privillage");
 				// "return mark_private, mark_exact, mark_generic, test_privillage";
 				testPrivillage = LuaFunction.MakeRefTo(this, -1);
-				var markGeneric = LuaFunction.MakeRefTo(this, -2);
-				var markExact = LuaFunction.MakeRefTo(this, -3);
-				var markPrivate = LuaFunction.MakeRefTo(this, -4);
+				var markNestedType = LuaFunction.MakeRefTo(this, -2);
+				var markGeneric = LuaFunction.MakeRefTo(this, -3);
+				var markExact = LuaFunction.MakeRefTo(this, -4);
+				var markPrivate = LuaFunction.MakeRefTo(this, -5);
 
 				csharp["p_private"] = markPrivate;
 				markPrivate.Dispose();
@@ -485,7 +494,10 @@ namespace lua
 				csharp["p_generic"] = markGeneric;
 				markGeneric.Dispose();
 
-				Api.lua_pop(L, 4); // pop
+				csharp["p_nested_type"] = markNestedType;
+				markNestedType.Dispose();
+
+				Api.lua_pop(L, 5); // pop
 
 				DoString(kLuaStub_TypeOf, 2, "typeof");
 				// -1 isIndexingTypeObject, -2 typeof
@@ -2343,18 +2355,8 @@ namespace lua
 			}
 		}
 
-		static int ImportInternal_(IntPtr L) // called only if the type not imported
+		internal static void PushTypeInternal(IntPtr L, Type type)
 		{
-			string typename;
-			if (!Api.luaL_teststring_strict(L, 1, out typename))
-			{
-				throw new ArgumentException("expected string", "typename (arg 1)");
-			}
-			var type = loadType(typename);
-			if (type == null)
-			{
-				throw new Exception(string.Format("Cannot import type {0}", typename));
-			}
 			if (PushObjectInternal(L, type, classMetaTable) == 1) // type object in ImportInternal_ is cached by luaL_requiref
 			{
 				Api.lua_getmetatable(L, -1); // append info in metatable
@@ -2367,6 +2369,21 @@ namespace lua
 
 				Api.lua_pop(L, 1);
 			}
+		}
+
+		static int ImportInternal_(IntPtr L) // called only if the type not imported
+		{
+			string typename;
+			if (!Api.luaL_teststring_strict(L, 1, out typename))
+			{
+				throw new ArgumentException("expected string", "typename (arg 1)");
+			}
+			var type = loadType(typename);
+			if (type == null)
+			{
+				throw new Exception(string.Format("Cannot import type {0}", typename));
+			}
+			PushTypeInternal(L, type);
 			return 1;
 		}
 
