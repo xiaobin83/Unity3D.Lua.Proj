@@ -1034,6 +1034,50 @@ namespace lua.test
 			}
 		}
 
+		class TestSetEnumClass
+		{
+			public enum TestEnum
+			{
+				T0 = 20, T1 = 42
+			}
+
+			public TestEnum SetEnum(TestEnum t)
+			{
+				return t;
+			}
+
+			public TestEnum e;
+		}
+
+		[Test]
+		public void TestSetEnum()
+		{
+			L.Import(typeof(TestSetEnumClass), "TTT");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n" +
+				"  local t = TTT[{csharp.p_nested_type(), 'TestEnum'}]\n" +
+				"  d.e = t.T1\n" +
+				"  return d.e\n" + 
+				"end\n"))
+			{
+				Assert.AreEqual((int)TestSetEnumClass.TestEnum.T1, f.Invoke1(new TestSetEnumClass()));
+			}
+		}
+
+		[Test]
+		public void TestSetEnum2()
+		{
+			L.Import(typeof(TestSetEnumClass), "TTT");
+			using (var f = LuaFunction.NewFunction(L,
+				"function(d)\n" +
+				"  local t = TTT[{csharp.p_nested_type(), 'TestEnum'}]\n" +
+				"  return d:SetEnum(t.T1)\n" +
+				"end\n"))
+			{
+				Assert.AreEqual((int)TestSetEnumClass.TestEnum.T1, f.Invoke1(new TestSetEnumClass()));
+			}
+		}
+
 		[Test]
 		public void TestToEnum()
 		{
