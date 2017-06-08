@@ -1448,7 +1448,7 @@ namespace lua
 				return 4; // convert to bool
 			}
 			else if (type == typeof(LuaFunction) || type == typeof(System.Action) || type == typeof(UnityEngine.Events.UnityAction)
-				|| typeof(System.Delegate).IsAssignableFrom(type))
+					|| typeof(System.Delegate).IsAssignableFrom(type))
 			{
 				if (luaArgType == Api.LUA_TFUNCTION) return 10;
 			}
@@ -1467,6 +1467,24 @@ namespace lua
 			else if (type == typeof(object))
 			{
 				return 5; // can be converted to object
+			}
+			else if (typeof(System.Enum).IsAssignableFrom(type))
+			{
+				if (luaArgType == Api.LUA_TNUMBER) return 5;
+				if (luaArgType == Api.LUA_TUSERDATA)
+				{
+					var obj = ObjectAtInternal(L, argIdx);
+					if (obj != null)
+					{
+						var objType = obj.GetType();
+						if (type == objType) return 10;
+						if (type.IsAssignableFrom(objType)) return 5;
+					}
+					else
+					{
+						throw new ArgumentNullException();
+					}
+				}
 			}
 			else if (!type.IsPrimitive) 
 			{
@@ -1613,13 +1631,11 @@ namespace lua
 					{
 						nvalue = Api.lua_tonumber(L, luaArgIdx);
 					}
-
 					if (type.IsByRef)
 					{
 						type = type.GetElementType();
 					}
-					var converted = System.Convert.ChangeType(nvalue, type);
-					actualArgs.SetValue(converted, idx);
+					actualArgs.SetValue(ConvertTo(nvalue, type), idx);
 					break;
 				case Api.LUA_TSTRING:
 					actualArgs.SetValue(Api.lua_tostring(L, luaArgIdx), idx);
@@ -2762,6 +2778,10 @@ namespace lua
 			else if (type == typeof(LuaFunction))
 			{
 				return (LuaFunction)value;
+			}
+			else if (typeof(System.Enum).IsAssignableFrom(type))
+			{
+				return System.Enum.ToObject(type, value);
 			}
 			else if (typeof(System.Delegate).IsAssignableFrom(type))
 			{
