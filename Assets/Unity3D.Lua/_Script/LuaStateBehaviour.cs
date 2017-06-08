@@ -10,8 +10,12 @@ namespace lua
 			var go = new GameObject("_LuaStateObject");
 			var be = go.AddComponent<LuaStateBehaviour>();
 			DontDestroyOnLoad(go);
-			be.Load();
 			return be;
+		}
+
+		void Awake()
+		{
+			Load();
 		}
 
 		public void Unload()
@@ -25,6 +29,7 @@ namespace lua
 		{
 			Debug.Assert(luaVm == null);
 			luaVm = new Lua();
+			LuaBehaviour.SetLua(luaVm);
 		}
 
 		public Lua luaVm { get; private set; }

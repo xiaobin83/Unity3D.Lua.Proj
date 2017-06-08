@@ -1,0 +1,1 @@
+@python %~p0\protoc-gen-lua

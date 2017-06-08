@@ -121,6 +121,8 @@ namespace lua.test
 		{
 			L.Unref(objRef);
 			Lua.CleanMethodCache();
+			Lua.CleanMemberCache();
+			LuaFunction.CollectActionPool();
 			L.Dispose();
 		}
 

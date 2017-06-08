@@ -28,7 +28,6 @@ end
 
 function ClickMe:OnClick()
 	Debug.Log('OnClick in Lua ' .. self.value)
-
 	local val = self.value
 	local co = coroutine.create(
 		function() 

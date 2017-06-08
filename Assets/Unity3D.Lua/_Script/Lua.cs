@@ -457,6 +457,32 @@ namespace lua
 			return 1;
 		}
 
+#if UNITY_EDITOR
+		public void Editor_SetPath(string pathToUnity3DLua)
+		{
+			// path
+			var path = Application.dataPath;
+			path = System.IO.Path.Combine(path, pathToUnity3DLua);
+			path = System.IO.Path.Combine(path, "Modules");
+			path = path.Replace('\\', '/');
+			var luaPath = path + "/?.lua;" + path +"/?/init.lua;" + path + "/protobuf/?.lua";
+			AddPath(luaPath);
+
+			// cpath
+			path = Application.dataPath;
+			path = System.IO.Path.Combine(path, pathToUnity3DLua);
+			path = System.IO.Path.Combine(path, "Windows");
+			if (IntPtr.Size > 4)
+				path = System.IO.Path.Combine(path, "x86_64");
+			else
+				path = System.IO.Path.Combine(path, "x86");
+			path = path.Replace('\\', '/');
+			var luaCPath = path + "/?.dll;"+path + "/?/init.dll";
+			AddCPath(luaCPath);
+
+		}
+#endif
+
 		public Lua()
 		{
 #if ALLOC_FROM_CSHARP
@@ -576,27 +602,8 @@ namespace lua
 
 			// set default path
 #if UNITY_EDITOR
-			// path
-			var path = Application.dataPath;
-			path = System.IO.Path.Combine(path, "Plugins");
-			path = System.IO.Path.Combine(path, "Unity3D.Lua");
-			path = System.IO.Path.Combine(path, "Modules");
-			path = path.Replace('\\', '/');
-			var luaPath = path + "/?.lua;" + path +"/?/init.lua";
-			AddPath(luaPath);
-
-			// cpath
-			path = Application.dataPath;
-			path = System.IO.Path.Combine(path, "Plugins");
-			path = System.IO.Path.Combine(path, "Unity3D.Lua");
-			path = System.IO.Path.Combine(path, "Windows");
-			if (IntPtr.Size > 4)
-				path = System.IO.Path.Combine(path, "x86_64");
-			else
-				path = System.IO.Path.Combine(path, "x86");
-			path = path.Replace('\\', '/');
-			var luaCPath = path + "/?.dll;"+path + "/?/init.dll";
-			AddCPath(luaCPath);
+			Editor_SetPath("Unity3D.Lua");
+			Editor_SetPath(System.IO.Path.Combine("Plugins", "Unity3D.Lua"));
 #endif
 		}
 
@@ -653,12 +660,12 @@ namespace lua
 
 		public void AddCPath(string cpath)
 		{
-			addPath.Invoke(null, "cpath", cpath);
+			addPath.Invoke("cpath", cpath);
 		}
 
 		public void AddPath(string path)
 		{
-			addPath.Invoke(null, "path", path);
+			addPath.Invoke("path", path);
 		}
 
 		const string kLuaStub_ForbidGlobalVar =

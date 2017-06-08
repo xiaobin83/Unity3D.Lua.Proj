@@ -49,7 +49,11 @@ namespace lua
 		{
 			if (Application.isPlaying)
 			{
-				var type = Type.GetType("lua.LuaBehaviour, Assembly-CSharp-firstpass");
+				var type = Type.GetType("lua.LuaBehaviour");
+				if (type == null)
+				{
+					type = Type.GetType("lua.LuaBehaviour, Assembly-CSharp-firstpass");
+				}
 				Debug.Assert(type != null);
 				var field = type.GetField("L", BindingFlags.Static | BindingFlags.NonPublic);
 				var L = (Lua)field.GetValue(null);
