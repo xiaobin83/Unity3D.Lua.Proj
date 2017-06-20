@@ -2173,7 +2173,11 @@ namespace lua.test
 				return 42;
 			}
 			int Bar = 84;
-		}
+			public int GetBar()
+			{
+				return Bar;
+			}
+        }
 
 		[Test]
 		public void TestPrivatePrivillage()
@@ -2184,6 +2188,18 @@ namespace lua.test
 				Assert.AreEqual(84, f.Invoke1(t));
 			}
 		}
+
+		[Test]
+		public void TestPrivatePrivillageAssignment()
+		{
+			var t = new PrivatePrivillage();
+			using (var f = LuaFunction.NewFunction(L, "function(d) d[{csharp.p_private(), 'Bar'}] = 42 end"))
+			{
+				f.Invoke(t);
+				Assert.AreEqual(42, t.GetBar());
+			}
+		}
+
 
 		[Test]
 		public void TestPrivatePrivillage2()
