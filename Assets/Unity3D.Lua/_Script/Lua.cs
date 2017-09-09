@@ -2757,6 +2757,9 @@ namespace lua
 
 		internal static object ConvertTo(object value, Type type)
 		{
+			if (value == null)
+				return null;
+
 			if (value.GetType() == type)
 			{
 				return value;
