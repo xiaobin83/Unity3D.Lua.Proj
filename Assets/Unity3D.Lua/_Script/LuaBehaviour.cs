@@ -296,7 +296,7 @@ namespace lua
 				{
 					Api.lua_pushstring(L, i.ToString());
 					// stack: script table, instance table, key
-					Api.lua_rawget(L, -3);
+					Api.lua_gettable(L, -3);
 					// stack: script table, instance table, function?
 					if (Api.lua_isfunction(L, -1))
 					{
@@ -511,8 +511,14 @@ namespace lua
 			var funcAndParams = message.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 			if (funcAndParams.Length >= 1)
 			{
+				var top = Api.lua_gettop(L);
 				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-				Api.lua_getfield(L, -1, message);
+				Api.lua_getfield(L, -1, funcAndParams[0]);
+				if (Api.lua_isnil(L, -1))
+				{
+					Api.lua_settop(L, top);
+					return;
+				}
 				Api.lua_pushvalue(L, -2);
 				for (int i = 1; i < funcAndParams.Length; ++i)
 				{
@@ -526,7 +532,7 @@ namespace lua
 				{
 					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
 				}
-				Api.lua_pop(L, 1);
+				Api.lua_settop(L, top);
 			}
 		}
 		

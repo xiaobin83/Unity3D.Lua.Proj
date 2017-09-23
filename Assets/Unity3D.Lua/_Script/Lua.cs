@@ -795,7 +795,32 @@ namespace lua
 			catch (Exception e)
 			{
 				Api.lua_settop(L, top);
-				Api.lua_pushstring(L, e.Message);
+				PushErrorObject(L, e.Message);
+			}
+			return 1;
+		}
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int DoChunk(IntPtr L)
+		{
+			var top = Api.lua_gettop(L);
+			var chunk = TestBytes(L, 1);
+			if (chunk == null)
+			{
+				Api.lua_settop(L, top);
+				PushErrorObject(L, "nil chunk");
+			}
+			var chunkName = Api.lua_tostring(L, 2);
+			try
+			{
+				LoadChunkInternal(L, chunk, chunkName);
+				CallInternal(L, 0, Api.LUA_MULTRET);
+				return Api.lua_gettop(L) - top;
+			}
+			catch (Exception e)
+			{
+				Api.lua_settop(L, top);
+				PushErrorObject(L, e.Message);
 			}
 			return 1;
 		}
@@ -807,6 +832,7 @@ namespace lua
 			{
 				new Api.luaL_Reg("import", Import),
 				new Api.luaL_Reg("dofile", DoFile),
+				new Api.luaL_Reg("dochunk", DoChunk),
 				new Api.luaL_Reg("_break", _Break),
 				new Api.luaL_Reg("make_array", MakeArray),
 				new	Api.luaL_Reg("to_enum",	ToEnum),
