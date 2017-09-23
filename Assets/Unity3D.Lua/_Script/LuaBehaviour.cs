@@ -175,6 +175,10 @@ namespace lua
 			Event_PointerEnter,
 			Event_PointerExit,
 
+			Event_BeginDrag,
+			Event_Drag,
+			Event_EndDrag,
+
 			_Count
 		}
 
@@ -369,6 +373,12 @@ namespace lua
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaPointerEventHander>());
+				}
+
+				flag = messageFlag & (MakeFlag(Message.Event_Drag) | MakeFlag(Message.Event_BeginDrag) | MakeFlag(Message.Event_EndDrag));
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaDragEventHandler>());
 				}
 
 				Api.lua_pop(L, 2); // pop instance table, script table
