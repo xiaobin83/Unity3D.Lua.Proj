@@ -179,6 +179,8 @@ namespace lua
 			Event_Drag,
 			Event_EndDrag,
 
+			OnLowMemory,
+
 			_Count
 		}
 
@@ -379,6 +381,12 @@ namespace lua
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaDragEventHandler>());
+				}
+
+				flag = messageFlag & MakeFlag(Message.OnLowMemory);
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaLowMemoryHandler>());
 				}
 
 				Api.lua_pop(L, 2); // pop instance table, script table
