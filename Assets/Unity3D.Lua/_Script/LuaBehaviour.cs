@@ -411,6 +411,7 @@ namespace lua
 				{
 					instanceBehaviours[i].SetLuaBehaviour(this);
 				}
+				SendLuaMessage(LuaBehaviour.Message.Awake); // Awake Lua Script
 			}
 			else
 			{

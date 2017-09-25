@@ -31,7 +31,6 @@ namespace lua
 		internal void SetLuaBehaviour(LuaBehaviour behaviour)
 		{
 			luaBehaviour = behaviour;
-			luaBehaviour.SendLuaMessage(LuaBehaviour.Message.Awake); // Awake Lua Script
 		}
 	}
 }
