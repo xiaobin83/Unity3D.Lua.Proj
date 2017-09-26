@@ -49,7 +49,7 @@ namespace lua
 			"  merged = {}\n" +
 			"  for k, v in pairs(orig) do\n" +
 			// "    Debug.Log(k)\n" +
-			"    if cur[k] then\n" +
+			"    if cur[k] or type(cur[k]) == 'boolean' then\n" +
 			"      merged[k] = cur[k]\n" +
 			"    else\n" +
 			"      merged[k] = v\n" +
