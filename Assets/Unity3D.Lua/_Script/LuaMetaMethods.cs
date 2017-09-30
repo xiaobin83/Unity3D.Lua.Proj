@@ -381,8 +381,12 @@ namespace lua
 					|| (obj2 != null && obj2.Equals(obj1)))
 				{
 					Api.lua_pushboolean(L, true);
-					return 1;
 				}
+				else
+				{
+					Api.lua_pushboolean(L, false);
+				}
+				return 1;
 			}
 			var obj = obj1;
 			if (obj == null)
