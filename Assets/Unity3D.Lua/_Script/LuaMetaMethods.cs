@@ -293,7 +293,6 @@ namespace lua
 					using (var ret = host.testPrivillage.InvokeMultiRet(p))
 					{
 						var name = (string)ret[1];
-						var hasPrivillage = (bool)ret[2];
 						Lua.SetMember(L, thisObject, typeObject, name, Lua.ValueAtInternal(L, 3), hasPrivatePrivillage: true);
 					}
 				}

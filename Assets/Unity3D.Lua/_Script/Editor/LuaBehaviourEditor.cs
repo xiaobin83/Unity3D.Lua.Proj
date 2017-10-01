@@ -59,9 +59,28 @@ namespace lua
 			"end\n";
 
 
-		static void SetInitChunkByString(LuaBehaviour lb, string chunk)
+		void SetInitChunkByString(LuaBehaviour lb, string chunk)
 		{
-			lb.SetInitChunk(System.Text.Encoding.UTF8.GetBytes(chunk));
+			var prop = serializedObject.FindProperty("_InitChunk");
+			if (prop != null)
+			{
+				if (string.IsNullOrEmpty(chunk))
+				{
+					prop.ClearArray();
+					lb.SetInitChunk(null);
+				}
+				else
+				{
+					var bytes = System.Text.Encoding.UTF8.GetBytes(chunk);
+					prop.arraySize = bytes.Length;
+					for (int i = 0; i < bytes.Length; ++i)
+					{
+						prop.GetArrayElementAtIndex(i).intValue = (int)bytes[i];
+					}
+					lb.SetInitChunk(bytes);
+				}
+				serializedObject.ApplyModifiedProperties();
+			}
 		}
 
 		static string GetInitChunkAsString(LuaBehaviour lb)
@@ -139,7 +158,7 @@ namespace lua
 			{
 				noInitFunc = true;
 				Api.lua_pop(L, 1); // pop func
-				lb.SetInitChunk(null); // no _Init chunk anymore
+				SetInitChunkByString(lb, null);
 				keys = null;
 				values = null;
 				serializedObject.Update();
@@ -293,7 +312,7 @@ namespace lua
 		}
 
 		// if _Init func changed and also dumped, merge this two parts and dump again
-		void OnInspectorGUI_CheckReimported()
+		bool OnInspectorGUI_CheckReimported()
 		{
 			if (!Application.isPlaying)
 			{
@@ -302,16 +321,20 @@ namespace lua
 				{
 					Reload();
 					WatchingLuaSources.SetProcessed(lb.scriptPath);
+					return true;
 				}
 			}
+			return false;
 		}
 
 
 		HashSet<string> gameObjectNames = new HashSet<string>();
+		HashSet<string> objectNames = new HashSet<string>();
 		HashSet<string> eventNames = new HashSet<string>();
 		void OnInspectorGUI_GameObjectMap()
 		{
 			gameObjectNames.Clear();
+			objectNames.Clear();
 			eventNames.Clear();
 
 			var serializedKeys = serializedObject.FindProperty("keys");
@@ -369,6 +392,62 @@ namespace lua
 				++serializedGameObjects.arraySize;
 			}
 
+			serializedKeys = serializedObject.FindProperty("objectKeys");
+			var serializedObjects = serializedObject.FindProperty("objects");
+
+			EditorGUILayout.BeginVertical();
+			idToDelete = -1;
+			hasDuplicatedName = false;
+			for (int i = 0; i < serializedKeys.arraySize; ++i)
+			{
+				var propKey = serializedKeys.GetArrayElementAtIndex(i);
+				var propObject = serializedObjects.GetArrayElementAtIndex(i);
+
+				EditorGUILayout.BeginHorizontal();
+
+				var nameDuplicated = !objectNames.Add(propKey.stringValue);
+				hasDuplicatedName = hasDuplicatedName || nameDuplicated;
+
+				propKey.stringValue = 
+					EditorGUILayout.TextField(
+						i.ToString() + ".", 
+						propKey.stringValue, 
+						nameDuplicated ? errorTextFieldStyle : normalTextFieldStyle);
+
+				propObject.objectReferenceValue = 
+					EditorGUILayout.ObjectField(propObject.objectReferenceValue, typeof(UnityEngine.Object), true);
+
+				if (GUILayout.Button("X", GUILayout.Width(20)))
+				{
+					idToDelete = i;
+				}
+				EditorGUILayout.EndHorizontal();
+
+			}
+			EditorGUILayout.EndVertical();
+
+			if (hasDuplicatedName)
+			{
+				EditorGUILayout.HelpBox(
+					"Duplicated name of attached Object found! Object may not be found correctly in script!",
+					MessageType.Error);
+			}
+
+			if (idToDelete != -1)
+			{
+				Undo.RecordObject(target, "LuaBehaviour.RemoveObject");
+				serializedKeys.DeleteArrayElementAtIndex(idToDelete);
+				serializedObjects.DeleteArrayElementAtIndex(idToDelete);
+			}
+
+			if (GUILayout.Button("Attach New Object"))
+			{
+				Undo.RecordObject(target, "LuaBehaviour.AddObject");
+				++serializedKeys.arraySize;
+				++serializedObjects.arraySize;
+			}
+
+
 			serializedKeys = serializedObject.FindProperty("eventKeys");
 			var serializedEvents = serializedObject.FindProperty("events");
 
@@ -399,6 +478,13 @@ namespace lua
 				EditorGUILayout.PropertyField(propEvent);
 			}
 			EditorGUILayout.EndVertical();
+
+			if (hasDuplicatedName)
+			{
+				EditorGUILayout.HelpBox(
+					"Duplicated name of attached Event found! Event may not be found correctly in script!",
+					MessageType.Error);
+			}
 
 			if (idToDelete != -1)
 			{
@@ -432,6 +518,7 @@ namespace lua
 			{
 				serializedObject.ApplyModifiedProperties();
 				Reload();
+				return;
 			}
 			if (string.IsNullOrEmpty(lb.scriptName))
 			{
@@ -441,7 +528,9 @@ namespace lua
 
 
 
-			OnInspectorGUI_CheckReimported();
+			if (OnInspectorGUI_CheckReimported())
+				return;
+
 			OnInspectorGUI_GameObjectMap();
 			
 
@@ -461,19 +550,18 @@ namespace lua
 			EditorGUILayout.LabelField("Init Values:");
 			if (GUILayout.Button("Reset"))
 			{
-				if (lb.IsInitFuncDumped())
-				{
 					// reset original _Init function defined in script
-					Undo.RecordObject(lb, "LuaBehaviour.ChangeInitChunk");
-					lb.SetInitChunk(null);
-					Reload();
-				}
+				Undo.RecordObject(lb, "LuaBehaviour.ChangeInitChunk");
+				SetInitChunkByString(lb, null);
+				Reload();
+				return;
 			}
 			if (Application.isPlaying)
 			{
 				if (GUILayout.Button("Reload"))
 				{
 					ReloadAtRunTime();
+					return;
 				}
 			}
 			EditorGUILayout.EndHorizontal();
@@ -597,7 +685,6 @@ namespace lua
 				var lb = target as LuaBehaviour;
 				Undo.RecordObject(lb, "LuaBehaviour.ChangeInitValues");
 				SetInitChunkByString(lb, chunk);
-				serializedObject.Update();
 			}
 			catch (Exception e)
 			{

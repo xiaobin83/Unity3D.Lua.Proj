@@ -122,7 +122,13 @@ namespace lua
 		[SerializeField]
 		[HideInInspector]
 		GameObject[] gameObjects;
-
+		
+		[SerializeField]
+		[HideInInspector]
+		string[] objectKeys;
+		[SerializeField]
+		[HideInInspector]
+		UnityEngine.Object[] objects;
 
 		[SerializeField]
 		[HideInInspector]
@@ -180,6 +186,9 @@ namespace lua
 			Event_EndDrag,
 
 			OnLowMemory,
+
+			OnDrawGizmos,
+			
 
 			_Count
 		}
@@ -387,6 +396,12 @@ namespace lua
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaLowMemoryHandler>());
+				}
+
+				flag = messageFlag & MakeFlag(Message.OnDrawGizmos);
+				if (flag != 0)
+				{
+					instanceBehaviours.Add(gameObject.AddComponent<LuaMiscBehaviour>());
 				}
 
 				Api.lua_pop(L, 2); // pop instance table, script table
@@ -698,7 +713,14 @@ namespace lua
 		byte[] _InitChunk;
 		bool LoadInitFuncToInstanceTable(Lua L)
 		{
-			if (_InitChunk == null || _InitChunk.Length == 0) return false;
+			if (_InitChunk == null || _InitChunk.Length == 0)
+			{
+				// remove _Init func
+				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+				Api.lua_pushnil(L);
+				Api.lua_setfield(L, -2, "_Init");
+				return false;
+			}
 			try
 			{
 				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
@@ -713,6 +735,22 @@ namespace lua
 				Debug.LogError(e.Message);
 			}
 			return false;
+		}
+
+		// non-throw
+		public UnityEngine.Object FindObject(string key)
+		{
+			var index = System.Array.FindIndex(objectKeys, (k) => k == key);
+			if (index != -1)
+				return GetObjectAtIndex(index);
+			return null;
+		}
+
+		public UnityEngine.Object GetObjectAtIndex(int index)
+		{
+			if (index >= 0 && index < objects.Length)
+				return objects[index];
+			return null;
 		}
 
 		// non-throw
