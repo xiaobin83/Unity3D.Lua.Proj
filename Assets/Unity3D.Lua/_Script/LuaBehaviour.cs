@@ -188,7 +188,7 @@ namespace lua
 			OnLowMemory,
 
 			OnDrawGizmos,
-			
+			OnDrawGizmosSelected,
 
 			_Count
 		}
@@ -398,7 +398,7 @@ namespace lua
 					instanceBehaviours.Add(gameObject.AddComponent<LuaLowMemoryHandler>());
 				}
 
-				flag = messageFlag & MakeFlag(Message.OnDrawGizmos);
+				flag = messageFlag & (MakeFlag(Message.OnDrawGizmos) | MakeFlag(Message.OnDrawGizmosSelected));
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaMiscBehaviour>());

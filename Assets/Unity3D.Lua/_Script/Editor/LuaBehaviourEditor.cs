@@ -161,7 +161,6 @@ namespace lua
 				SetInitChunkByString(lb, null);
 				keys = null;
 				values = null;
-				serializedObject.Update();
 				return;
 			}
 
@@ -281,6 +280,7 @@ namespace lua
 				// dump again, in case of Script._Init and Behaviour._Init being merged.
 				DumpInitValues();
 			}
+			serializedObject.Update();
 		}
 
 		void HandleUndoRedo()
@@ -312,7 +312,7 @@ namespace lua
 		}
 
 		// if _Init func changed and also dumped, merge this two parts and dump again
-		bool OnInspectorGUI_CheckReimported()
+		void OnInspectorGUI_CheckReimported()
 		{
 			if (!Application.isPlaying)
 			{
@@ -321,10 +321,8 @@ namespace lua
 				{
 					Reload();
 					WatchingLuaSources.SetProcessed(lb.scriptPath);
-					return true;
 				}
 			}
-			return false;
 		}
 
 
@@ -528,9 +526,7 @@ namespace lua
 
 
 
-			if (OnInspectorGUI_CheckReimported())
-				return;
-
+			OnInspectorGUI_CheckReimported();
 			OnInspectorGUI_GameObjectMap();
 			
 
