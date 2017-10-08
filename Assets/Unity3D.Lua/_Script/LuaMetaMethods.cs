@@ -76,6 +76,14 @@ namespace lua
 			}
 
 			var type = (System.Type)typeObj;
+
+			if (luaArgTypes == Lua.luaArgTypes_NoArgs && type.IsValueType)
+			{
+				var value = Activator.CreateInstance(type);
+				Lua.PushObjectInternal(L, value);
+				return 1;
+			}
+
 			var mangledName = Lua.CheckHost(L).Mangle("__ctor", luaArgTypes, invokingStaticMethod: true, argStart: 2);
 			var mc = Lua.GetMethodFromCache(type, mangledName);
 			System.Reflection.ParameterInfo[] parameters = null;
@@ -102,7 +110,6 @@ namespace lua
 							pendingExceptions = new List<Exception>();
 						pendingExceptions.Add(e);
 					}
-
 				}
 				if (selected != null)
 				{

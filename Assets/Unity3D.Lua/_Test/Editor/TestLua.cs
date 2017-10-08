@@ -2410,5 +2410,16 @@ namespace lua.test
 			}
 
 		}
+
+		[Test]
+		public void TestStructConstruct()
+		{
+			L.Import(typeof(Vector3), "KKK");
+			using (var f = LuaFunction.NewFunction(L, "function() local k = KKK(); k.x = 10; return k end"))
+			{
+				var v = (Vector3)f.Invoke1();
+				Assert.AreEqual(10, v.x);
+			}
+		}
 	}
 }
