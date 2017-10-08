@@ -233,6 +233,7 @@ namespace lua
 			{
 				this.scriptName = scriptName;
 				Awake();
+				OnEnable();
 			}
 			else
 			{
@@ -425,6 +426,7 @@ namespace lua
 				for (int i = 0; i < instanceBehaviours.Count; ++i)
 				{
 					instanceBehaviours[i].SetLuaBehaviour(this);
+					instanceBehaviours[i].enabled = false;
 				}
 				SendLuaMessage(LuaBehaviour.Message.Awake); // Awake Lua Script
 			}
@@ -646,6 +648,18 @@ namespace lua
 			StartCoroutine(LuaCoroutine(thread.Retain()));
 		}
 
+		bool ShouldReceiveMessage(Message message)
+		{
+			if (enabled) return true;
+			if (message == Message.Awake 
+				|| message == Message.OnDestroy
+				|| message == Message.OnEnable
+				|| message == Message.OnDisable)
+			{
+				return true;
+			}
+			return false;
+		}
 
 		public void SendLuaMessage(Message message)
 		{
@@ -654,6 +668,9 @@ namespace lua
 			if (!scriptLoaded) return;
 
 			if ((messageFlag & MakeFlag(message)) == 0) return; // no message defined
+
+			if (!ShouldReceiveMessage(message))
+				return;
 
 			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
 			// get message func	from instance table
@@ -680,6 +697,9 @@ namespace lua
 			if (!scriptLoaded) return;
 
 			if ((messageFlag & MakeFlag(message)) == 0) return; // no message defined
+
+			if (!ShouldReceiveMessage(message))
+				return;
 
 			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
 			// get message func	from instance table
