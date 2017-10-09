@@ -495,6 +495,7 @@ namespace lua
 
 			// put an anchor at _G['__host']
 			SetHost();
+			SetEnv();
 
 			Api.luaL_requiref(L, "csharp", OpenCsharpLib, 1);
 			csharp = LuaTable.MakeRefTo(this, -1);
@@ -727,6 +728,34 @@ namespace lua
 				return (string)hexDump.Invoke1(null, data);
 			}
 			return string.Empty;
+		}
+
+		void SetEnv()
+		{
+			var tbl = new LuaTable(this);
+#if UNITY_EDITOR
+			tbl["EDITOR"] = true;
+#endif
+
+#if UNITY_5
+			tbl["5"] = true;
+#endif
+
+#if UNITY_2017
+			tbl["2017"] = true;
+#endif
+
+#if UNITY_IOS
+			tbl["IOS"] = true;
+#endif
+
+#if UNITY_ANDROID
+			tbl["ANDROID"] = true;
+#endif
+			tbl.Push();
+			Api.lua_setglobal(L, "_UNITY");
+			tbl.Dispose();
+
 		}
 
 		const string kHost = "__host";
