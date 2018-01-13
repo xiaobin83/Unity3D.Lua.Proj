@@ -149,6 +149,7 @@ namespace lua
 		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
 		internal static int MetaIndexFunction(lua_State L)
 		{
+			//UnityEngine.Profiling.Profiler.BeginSample("MetaIndexFunction");
 			try
 			{
 				return MetaIndexFunctionInternal(L);
@@ -157,6 +158,10 @@ namespace lua
 			{
 				Lua.PushErrorObject(L, e.Message);
 				return 1;
+			}
+			finally
+			{
+				//UnityEngine.Profiling.Profiler.EndSample();
 			}
 		}
 

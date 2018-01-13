@@ -37,6 +37,7 @@ namespace lua
 		bool noInitFunc = false;
 		bool initChunkLoadFailed = false;
 		string reason;
+		string docString;
 
 		bool editSerializedChunk;
 
@@ -151,8 +152,14 @@ namespace lua
 			Api.lua_pop(L, 1);
 
 			// stack: table
+			var luaType = Api.lua_getfield(L, -1, "_doc");
+			if (luaType == Api.LUA_TSTRING)
+			{
+				docString = Api.lua_tostring(L, -1);
+			}
+			Api.lua_pop(L, 1);
 
-			var luaType = Api.lua_getfield(L, -1, "_Init");
+			luaType = Api.lua_getfield(L, -1, "_Init");
 			Api.lua_remove(L, -2); // keep _Init, remove table
 			if (luaType != Api.LUA_TFUNCTION)
 			{
@@ -299,6 +306,7 @@ namespace lua
 		void OnEnable()
 		{
 			L = new Lua();
+			L.SetGlobal("_UNITY_INSPECTOR", true);
 			Undo.SetCurrentGroupName("LuaBehaviour");
 			Undo.undoRedoPerformed += HandleUndoRedo;
 			Reload();
@@ -325,77 +333,19 @@ namespace lua
 			}
 		}
 
-
-		HashSet<string> gameObjectNames = new HashSet<string>();
 		HashSet<string> objectNames = new HashSet<string>();
 		HashSet<string> eventNames = new HashSet<string>();
-		void OnInspectorGUI_GameObjectMap()
+		void OnInspectorGUI_ObjectsAndEventsMap()
 		{
-			gameObjectNames.Clear();
 			objectNames.Clear();
 			eventNames.Clear();
 
-			var serializedKeys = serializedObject.FindProperty("keys");
-			var serializedGameObjects = serializedObject.FindProperty("gameObjects");
-
-			EditorGUILayout.BeginVertical();
-			var idToDelete = -1;
-			bool hasDuplicatedName = false;
-			for (int i = 0; i < serializedKeys.arraySize; ++i)
-			{
-				var propKey = serializedKeys.GetArrayElementAtIndex(i);
-				var propGameObject = serializedGameObjects.GetArrayElementAtIndex(i);
-
-				EditorGUILayout.BeginHorizontal();
-
-				var nameDuplicated = !gameObjectNames.Add(propKey.stringValue);
-				hasDuplicatedName = hasDuplicatedName || nameDuplicated;
-
-				propKey.stringValue = 
-					EditorGUILayout.TextField(
-						i.ToString() + ".",
-						propKey.stringValue, 
-						nameDuplicated ? errorTextFieldStyle : normalTextFieldStyle);
-				propGameObject.objectReferenceValue = 
-					EditorGUILayout.ObjectField(
-						propGameObject.objectReferenceValue,
-						typeof(GameObject),
-						allowSceneObjects: true);
-				if (GUILayout.Button("X", GUILayout.Width(20)))
-				{
-					idToDelete = i;
-				}
-				EditorGUILayout.EndHorizontal();
-			}
-			EditorGUILayout.EndVertical();
-
-			if (hasDuplicatedName)
-			{
-				EditorGUILayout.HelpBox(
-					"Duplicated name of attached GameObject found! GameObject may not be found correctly in script!",
-					MessageType.Error);
-			}
-
-			if (idToDelete != -1)
-			{
-				Undo.RecordObject(target, "LuaBehaviour.RemoveGameObject");
-				serializedKeys.DeleteArrayElementAtIndex(idToDelete);
-				serializedGameObjects.DeleteArrayElementAtIndex(idToDelete);
-			}
-
-			if (GUILayout.Button("Attach New GameObject"))
-			{
-				Undo.RecordObject(target, "LuaBehaviour.AddGameObject");
-				++serializedKeys.arraySize;
-				++serializedGameObjects.arraySize;
-			}
-
-			serializedKeys = serializedObject.FindProperty("objectKeys");
+			var serializedKeys = serializedObject.FindProperty("objectKeys");
 			var serializedObjects = serializedObject.FindProperty("objects");
 
 			EditorGUILayout.BeginVertical();
-			idToDelete = -1;
-			hasDuplicatedName = false;
+			var idToDelete = -1;
+			var hasDuplicatedName = false;
 			for (int i = 0; i < serializedKeys.arraySize; ++i)
 			{
 				var propKey = serializedKeys.GetArrayElementAtIndex(i);
@@ -413,7 +363,7 @@ namespace lua
 						nameDuplicated ? errorTextFieldStyle : normalTextFieldStyle);
 
 				propObject.objectReferenceValue = 
-					EditorGUILayout.ObjectField(propObject.objectReferenceValue, typeof(UnityEngine.Object), true);
+					EditorGUILayout.ObjectField(propObject.objectReferenceValue, typeof(UnityEngine.Object), true, GUILayout.Width(100));
 
 				if (GUILayout.Button("X", GUILayout.Width(20)))
 				{
@@ -488,7 +438,7 @@ namespace lua
 			{
 				Undo.RecordObject(target, "LuaBehaviour.RemoveEvent");
 				serializedKeys.DeleteArrayElementAtIndex(idToDelete);
-				serializedGameObjects.DeleteArrayElementAtIndex(idToDelete);
+				serializedEvents.DeleteArrayElementAtIndex(idToDelete);
 			}
 
 			if (GUILayout.Button("Add New Event"))
@@ -504,6 +454,10 @@ namespace lua
 
 		public override void OnInspectorGUI()
 		{
+			if (!string.IsNullOrEmpty(docString))
+				EditorGUILayout.HelpBox(docString, MessageType.Info);
+
+
 			errorTextFieldStyle = new GUIStyle(EditorStyles.textField);
 			errorTextFieldStyle.normal.textColor = Color.red;
 			normalTextFieldStyle = new GUIStyle(EditorStyles.textField);
@@ -524,11 +478,8 @@ namespace lua
 				return;
 			}
 
-
-
 			OnInspectorGUI_CheckReimported();
-			OnInspectorGUI_GameObjectMap();
-			
+			OnInspectorGUI_ObjectsAndEventsMap();
 
 			if (initChunkLoadFailed) 
 			{
@@ -561,6 +512,8 @@ namespace lua
 				}
 			}
 			EditorGUILayout.EndHorizontal();
+
+		
 			if (noInitFunc)
 				EditorGUILayout.HelpBox(string.Format("Init values can be specified in _Init function of script {0}.lua.", lb.scriptName), MessageType.Info);
 

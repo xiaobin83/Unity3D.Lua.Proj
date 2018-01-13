@@ -118,13 +118,6 @@ namespace lua
 
 		[SerializeField]
 		[HideInInspector]
-		string[] keys;
-		[SerializeField]
-		[HideInInspector]
-		GameObject[] gameObjects;
-		
-		[SerializeField]
-		[HideInInspector]
 		string[] objectKeys;
 		[SerializeField]
 		[HideInInspector]
@@ -185,10 +178,15 @@ namespace lua
 			Event_Drag,
 			Event_EndDrag,
 
-			OnLowMemory,
+            Event_GestureTwoFingerBegin,
+            Event_GestureTwoFingerMove,
+            Event_GestureTwoFingerEnd,
+
+            OnLowMemory,
 
 			OnDrawGizmos,
 			OnDrawGizmosSelected,
+			OnGUI,
 
 			_Count
 		}
@@ -210,10 +208,10 @@ namespace lua
 			}
 		}
 
-		int messageFlag = 0;
-		static int MakeFlag(Message m)
+		ulong messageFlag = 0;
+		static ulong MakeFlag(Message m)
 		{
-			return 1 << (int)m;
+			return (ulong)1 << (int)m;
 		}
 
 		int handleToThis = Api.LUA_NOREF;
@@ -226,8 +224,11 @@ namespace lua
 			}
 		}
 		int luaBehaviourRef = Api.LUA_NOREF;
-
-		public void LoadScript(string scriptName)
+        public int GetLuaBehaviourRef()
+        {
+            return luaBehaviourRef;
+        }
+        public void LoadScript(string scriptName)
 		{
 			if (!scriptLoaded)
 			{
@@ -292,7 +293,7 @@ namespace lua
 				L.DoString("return function(be, script)\n" +
 							"  return function(t, key)\n" +
 							"    local val = script[key]\n"	+
-							"    if not val then val = be[key] end\n" +
+							"    if type(val) == 'nil' then val = be[key] end\n" +
 							"    return val\n" +
 							"  end\n" +
 							"end", 1, "LuaBehaviour_GetMetaIndexFunction");
@@ -327,7 +328,7 @@ namespace lua
 				}
 
 				// choose script
-				int flag = messageFlag & (MakeFlag(Message.Update) | MakeFlag(Message.FixedUpdate) | MakeFlag(Message.LateUpdate));
+				ulong flag = messageFlag & (MakeFlag(Message.Update) | MakeFlag(Message.FixedUpdate) | MakeFlag(Message.LateUpdate));
 				var componentType = Type.GetType("lua.LuaInstanceBehaviour" + flag.ToString());
 				instanceBehaviours.Add(gameObject.AddComponent(componentType) as LuaInstanceBehaviour0);
 
@@ -393,13 +394,19 @@ namespace lua
 					instanceBehaviours.Add(gameObject.AddComponent<LuaDragEventHandler>());
 				}
 
-				flag = messageFlag & MakeFlag(Message.OnLowMemory);
+                flag = messageFlag & (MakeFlag(Message.Event_GestureTwoFingerBegin) | MakeFlag(Message.Event_GestureTwoFingerMove) | MakeFlag(Message.Event_GestureTwoFingerEnd));
+                if (flag != 0)
+                {
+                    instanceBehaviours.Add(gameObject.AddComponent<LuaGestureTwoFingerEventHandler>());
+                }
+
+                flag = messageFlag & MakeFlag(Message.OnLowMemory);
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaLowMemoryHandler>());
 				}
 
-				flag = messageFlag & (MakeFlag(Message.OnDrawGizmos) | MakeFlag(Message.OnDrawGizmosSelected));
+				flag = messageFlag & (MakeFlag(Message.OnDrawGizmos) | MakeFlag(Message.OnDrawGizmosSelected) | MakeFlag(Message.OnGUI));
 				if (flag != 0)
 				{
 					instanceBehaviours.Add(gameObject.AddComponent<LuaMiscBehaviour>());
@@ -425,6 +432,7 @@ namespace lua
 				// Awake Lua script
 				for (int i = 0; i < instanceBehaviours.Count; ++i)
 				{
+					instanceBehaviours[i].hideFlags = HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor | HideFlags.NotEditable;
 					instanceBehaviours[i].SetLuaBehaviour(this);
 					instanceBehaviours[i].enabled = false;
 				}
@@ -485,6 +493,11 @@ namespace lua
 
 		void OnDestroy()
 		{
+			foreach (var thread in runningCoroutines)
+			{
+				thread.Dispose();
+			}
+			runningCoroutines.Clear();
 			SendLuaMessage(Message.OnDestroy);
 			if (L != null && L.valid)
 			{
@@ -541,6 +554,59 @@ namespace lua
 			return null;
 		}
 
+		public void BroadcastLuaMessage(string message, LuaTable obj)
+		{
+			if(!scriptLoaded) return;
+
+			var children = GetComponentsInChildren<LuaBehaviour>();
+			if(children == null)
+			{
+				return;
+			}
+
+			foreach(var ch in children)
+			{
+				ch.SendLuaMessage(message, obj);
+			}
+		}
+
+		public void SendLuaMessageUpwards(string message, LuaTable obj)
+		{
+			if(!scriptLoaded) return;
+
+			var parents = GetComponentsInParent<LuaBehaviour>();
+			if(parents == null)
+			{
+				return;
+			}
+
+			foreach(var p in parents)
+			{
+				p.SendLuaMessage(message, obj);
+			}
+		}
+
+		public void SendLuaMessage(string message, LuaTable tbl)
+		{
+			if(!scriptLoaded) return;
+
+			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
+			{
+				Api.lua_pushvalue(L, -2);
+				tbl.Push();
+				try
+				{
+					L.Call(2, 0);
+				}
+				catch(Exception e)
+				{
+					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				}
+			}
+			Api.lua_pop(L, 1); // pop behaviour table
+		}
+
 		public void SendLuaMessage2(string message)
 		{
 			if (!scriptLoaded || string.IsNullOrEmpty(message)) return;
@@ -571,22 +637,24 @@ namespace lua
 				Api.lua_settop(L, top);
 			}
 		}
-		
+
 		public void SendLuaMessage(string message, object obj)
 		{
 			if (!scriptLoaded) return;
 
 			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			Api.lua_getfield(L, -1, message);
-			Api.lua_pushvalue(L, -2);
-			L.PushObject(obj);
-			try
+			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
 			{
-				L.Call(2, 0);
-			}
-			catch (Exception e)
-			{
-				Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				Api.lua_pushvalue(L, -2);
+				L.PushObject(obj);
+				try
+				{
+					L.Call(2, 0);
+				}
+				catch(Exception e)
+				{
+					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				}
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
 		}
@@ -596,16 +664,18 @@ namespace lua
 			if (!scriptLoaded) return;
 
 			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			Api.lua_getfield(L, -1, message);
-			Api.lua_pushvalue(L, -2);
-			Api.lua_pushstring(L, parameter);
-			try
+			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
 			{
-				L.Call(2, 0);
-			}
-			catch (Exception e)
-			{
-				Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				Api.lua_pushvalue(L, -2);
+				Api.lua_pushstring(L, parameter);
+				try
+				{
+					L.Call(2, 0);
+				}
+				catch(Exception e)
+				{
+					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+				}
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
 		}
@@ -630,8 +700,11 @@ namespace lua
 			Api.lua_pop(L, 1); // pop behaviour table
 		}
 
+		List<LuaThread> runningCoroutines = new List<LuaThread>();
 		IEnumerator LuaCoroutine(LuaThread thread)
 		{
+			thread = thread.Retain();
+			runningCoroutines.Add(thread);
 			while (thread.Resume())
 			{
 				if (thread.hasYields)
@@ -640,12 +713,13 @@ namespace lua
 				}
 				yield return null;
 			}
+			runningCoroutines.Remove(thread);
 			thread.Dispose();
 		}
 
 		public void StartLuaCoroutine(LuaThread thread)
 		{
-			StartCoroutine(LuaCoroutine(thread.Retain()));
+			StartCoroutine(LuaCoroutine(thread));
 		}
 
 		bool ShouldReceiveMessage(Message message)
@@ -770,25 +844,6 @@ namespace lua
 		{
 			if (index >= 0 && index < objects.Length)
 				return objects[index];
-			return null;
-		}
-
-		// non-throw
-		public GameObject FindGameObject(string key)
-		{
-			var index = System.Array.FindIndex(keys, (k) => k == key);
-			if (index != -1)
-				return GetGameObjectAtIndex(index);
-			return null;
-		}
-
-		// non-throw
-		public GameObject GetGameObjectAtIndex(int index)
-		{
-			if (index >= 0 && index < gameObjects.Length)
-			{
-				return gameObjects[index];
-			}
 			return null;
 		}
 

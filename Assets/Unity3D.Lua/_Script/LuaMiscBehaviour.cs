@@ -36,6 +36,11 @@ namespace lua
 		{
 			luaBehaviour.SendLuaMessage(LuaBehaviour.Message.OnDrawGizmosSelected);
 		}
+
+		void OnGUI()
+		{
+			luaBehaviour.SendLuaMessage(LuaBehaviour.Message.OnGUI);
+		}
 	}
 
 }

@@ -128,7 +128,14 @@ namespace lua
 
 				void ForAOTGeneration()
 				{
+					GenericAction(true);
 					GenericAction<string, object>(string.Empty, null);
+					GenericFunc<bool>();
+					GenericFunc<int>();
+					GenericFunc<long>();
+					GenericFunc<float>();
+					GenericFunc<double>();
+					GenericFunc<string>();
 				}
 
 				static System.Reflection.MemberInfo[] genericActions_;

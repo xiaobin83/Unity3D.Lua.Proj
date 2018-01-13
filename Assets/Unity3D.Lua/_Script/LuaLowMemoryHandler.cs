@@ -30,7 +30,8 @@ namespace lua
 	class LuaLowMemoryHandler : LuaInstanceBehaviour0
 	{
 		static System.Action onLowMemory;
-		public static void OnLowMemory()
+		static bool watchingMemory;
+		static void OnLowMemory()
 		{
 			if (onLowMemory != null)
 			{
@@ -40,10 +41,15 @@ namespace lua
 
 		void Awake()
 		{
+			if (!watchingMemory)
+			{
+				watchingMemory = true;
+				Application.lowMemory += OnLowMemory;
+			}
 			onLowMemory += OnLowMemoryInternal;
 		}
 
-		void Destroy()
+		void OnDestroy()
 		{
 			onLowMemory -= OnLowMemoryInternal;
 		}

@@ -29,7 +29,9 @@ namespace lua
 	{
 		void Update()
 		{
+			//UnityEngine.Profiling.Profiler.BeginSample(luaBehaviour.scriptName);
 			luaBehaviour.SendLuaMessage(LuaBehaviour.Message.Update);
+			//UnityEngine.Profiling.Profiler.EndSample();
 		}
 	}
 }
