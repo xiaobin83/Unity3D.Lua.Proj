@@ -11,6 +11,8 @@ public class _Init : MonoBehaviour {
 		public lua.LuaStateBehaviour luaState;
 		void Awake()
 		{
+			utils.TaskManager.Init();
+
 			lua.Config.Log = (msg) => UnityEngine.Debug.Log("[lua]" + msg);
 			lua.Config.LogWarning = (msg) => UnityEngine.Debug.LogWarning("[lua]" + msg);
 			lua.Config.LogError = (msg) => UnityEngine.Debug.LogError("[lua]" + msg);
