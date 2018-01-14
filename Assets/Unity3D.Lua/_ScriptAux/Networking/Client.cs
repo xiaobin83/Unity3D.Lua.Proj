@@ -4,23 +4,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
 
-public class Client : Debugable
+public class Client : utils.Debugable
 {
 
 	const int kMaxSingleCmdBufferSize = 2048;
 
 	networking.TcpIpClient client;
 
-	lua.Lua luaVm;
 	lua.LuaFunction onConnected;
 	lua.LuaFunction onRecv;
 	List<byte[]> receivedPackets = new List<byte[]>();
-
-
-	public void SetLua(lua.Lua luaVm)
-	{
-		this.luaVm = luaVm;
-	}
 
 	public void Connect(string addr, int port, lua.LuaFunction onConnected, lua.LuaFunction onRecv)
 	{
@@ -123,26 +116,15 @@ public class Client : Debugable
 				}
 				var y = rect.y;
 				var height = 80;
-				var func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() =>
-				{
-					return GetSendBandwidth();
-				}));
 				Editor_AddGraph(
-					"client_send", "kbps", func, 10, 0.5f,
+					"client_send", "kbps", GetSendBandwidth, 10, 0.5f,
 					x, y, width, height, Color.red);
-				func.Dispose();
 
 				y += height + 5;
-				func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() =>
-				{
-					return GetRecvBandwidth();
-				}));
 				Editor_AddGraph(
-					"client_recv", "kbps", func, 10, 0.5f,
+					"client_recv", "kbps", GetRecvBandwidth, 10, 0.5f,
 					x, y, width, height, Color.blue);
-				func.Dispose();
 #endif
-				
 			});
 	}
 

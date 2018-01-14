@@ -7,6 +7,13 @@ namespace utils
 {
 	public class WebRequest2_Lua
 	{
+		static lua.Lua luaVm;
+
+		public static void SetLua(lua.Lua luaVm)
+		{
+			WebRequest2_Lua.luaVm = luaVm;
+		}
+
 		public static void Download_Lua(string url, lua.LuaFunction complete)
 		{
 			var localComplete = complete.Retain();
@@ -23,7 +30,7 @@ namespace utils
 
 			if (parameter != null)
 			{
-				var L = _Init.luaVm;
+				var L = luaVm;
 				parameter.Push();
 				Api.lua_pushnil(L);
 				while (Api.lua_next(L, -2) != 0)

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Server : Debugable 
+public class Server : utils.Debugable 
 {
 	class Session
 	{
@@ -37,7 +37,6 @@ public class Server : Debugable
 
 	}
 
-	lua.Lua luaVm;
 	lua.LuaFunction onConnected;
 	lua.LuaFunction onRecv;
 
@@ -45,11 +44,6 @@ public class Server : Debugable
 	lua.LuaFunction onProxyConnected;
 	lua.LuaFunction onProxyRecv;
 	List<byte[]> proxyPackets = new List<byte[]>();
-
-	public void SetLua(lua.Lua luaVm)
-	{
-		this.luaVm = luaVm;
-	}
 
 	public void ConnectProxy(string addr, int port, lua.LuaFunction onConnected, lua.LuaFunction onRecv)
 	{
@@ -97,40 +91,24 @@ public class Server : Debugable
 		var y = 60;
 		var width = 200;
 		var height = 80;
-		var func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
-			return GetSendBandwidth();
-		}));
 		Editor_AddGraph(
-			"server_send", "kbps", func, 10, 0.5f, 
+			"server_send", "kbps", GetSendBandwidth, 10, 0.5f, 
 			x, y, width, height, Color.red);
-		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
-			return GetRecvBandwidth();
-		}));
 		Editor_AddGraph(
-			"server_recv", "kbps", func, 10, 0.5f, 
+			"server_recv", "kbps", GetRecvBandwidth, 10, 0.5f, 
 			x, y, width, height, Color.blue);
-		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
-			return GetProxySendBandwidth();
-		}));
 		Editor_AddGraph(
-			"proxy_send", "kbps", func, 10, 0.5f, 
+			"proxy_send", "kbps", GetProxySendBandwidth, 10, 0.5f, 
 			x, y, width, height, Color.red);
-		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
-			return GetProxyRecvBandwidth();
-		}));
 		Editor_AddGraph(
-			"proxy_recv", "kbps", func, 10, 0.5f, 
+			"proxy_recv", "kbps", GetProxyRecvBandwidth, 10, 0.5f, 
 			x, y, width, height, Color.blue);
-		func.Dispose();
 #endif
 	}
 

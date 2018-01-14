@@ -19,6 +19,8 @@ public class _Init : MonoBehaviour {
 
 			luaState = lua.LuaStateBehaviour.Create();
 			lua.Api.luaL_requiref(luaState.luaVm, "pb", lua.CModules.luaopen_pb, 0);
+			utils.Debugable.SetLua(luaState.luaVm);
+			utils.WebRequest2_Lua.SetLua(luaState.luaVm);
 
 			lua.Lua.scriptLoader = LuaScriptLoader.ScriptLoader;
 			lua.Lua.typeLoader = LuaScriptLoader.TypeLoader;
