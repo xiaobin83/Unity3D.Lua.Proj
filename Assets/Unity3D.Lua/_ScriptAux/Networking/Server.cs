@@ -37,6 +37,7 @@ public class Server : Debugable
 
 	}
 
+	lua.Lua luaVm;
 	lua.LuaFunction onConnected;
 	lua.LuaFunction onRecv;
 
@@ -44,6 +45,11 @@ public class Server : Debugable
 	lua.LuaFunction onProxyConnected;
 	lua.LuaFunction onProxyRecv;
 	List<byte[]> proxyPackets = new List<byte[]>();
+
+	public void SetLua(lua.Lua luaVm)
+	{
+		this.luaVm = luaVm;
+	}
 
 	public void ConnectProxy(string addr, int port, lua.LuaFunction onConnected, lua.LuaFunction onRecv)
 	{
@@ -91,7 +97,7 @@ public class Server : Debugable
 		var y = 60;
 		var width = 200;
 		var height = 80;
-		var func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() => {
+		var func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
 			return GetSendBandwidth();
 		}));
 		Editor_AddGraph(
@@ -100,7 +106,7 @@ public class Server : Debugable
 		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() => {
+		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
 			return GetRecvBandwidth();
 		}));
 		Editor_AddGraph(
@@ -109,7 +115,7 @@ public class Server : Debugable
 		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() => {
+		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
 			return GetProxySendBandwidth();
 		}));
 		Editor_AddGraph(
@@ -118,7 +124,7 @@ public class Server : Debugable
 		func.Dispose();
 
 		y  += height + 5;
-		func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() => {
+		func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() => {
 			return GetProxyRecvBandwidth();
 		}));
 		Editor_AddGraph(

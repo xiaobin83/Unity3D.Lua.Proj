@@ -11,9 +11,16 @@ public class Client : Debugable
 
 	networking.TcpIpClient client;
 
+	lua.Lua luaVm;
 	lua.LuaFunction onConnected;
 	lua.LuaFunction onRecv;
 	List<byte[]> receivedPackets = new List<byte[]>();
+
+
+	public void SetLua(lua.Lua luaVm)
+	{
+		this.luaVm = luaVm;
+	}
 
 	public void Connect(string addr, int port, lua.LuaFunction onConnected, lua.LuaFunction onRecv)
 	{
@@ -116,7 +123,7 @@ public class Client : Debugable
 				}
 				var y = rect.y;
 				var height = 80;
-				var func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() =>
+				var func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() =>
 				{
 					return GetSendBandwidth();
 				}));
@@ -126,7 +133,7 @@ public class Client : Debugable
 				func.Dispose();
 
 				y += height + 5;
-				func = lua.LuaFunction.CreateDelegate(_Init.luaVm, new Func<float>(() =>
+				func = lua.LuaFunction.CreateDelegate(luaVm, new Func<float>(() =>
 				{
 					return GetRecvBandwidth();
 				}));
@@ -135,6 +142,7 @@ public class Client : Debugable
 					x, y, width, height, Color.blue);
 				func.Dispose();
 #endif
+				
 			});
 	}
 
