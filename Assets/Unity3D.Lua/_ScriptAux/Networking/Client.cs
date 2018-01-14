@@ -116,12 +116,12 @@ public class Client : utils.Debugable
 				}
 				var y = rect.y;
 				var height = 80;
-				Editor_AddGraph(
+				Editor_AddGraph_Native(
 					"client_send", "kbps", GetSendBandwidth, 10, 0.5f,
 					x, y, width, height, Color.red);
 
 				y += height + 5;
-				Editor_AddGraph(
+				Editor_AddGraph_Native(
 					"client_recv", "kbps", GetRecvBandwidth, 10, 0.5f,
 					x, y, width, height, Color.blue);
 #endif

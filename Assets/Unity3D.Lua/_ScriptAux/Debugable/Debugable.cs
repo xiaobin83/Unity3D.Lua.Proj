@@ -271,15 +271,11 @@ namespace utils
 					func = func.Retain()
 				});
 		}
-		public void Editor_AddToolbarButton(string name, System.Action func, int width = 100)
+		public void Editor_AddToolbarButton_Native(string name, System.Action func, int width = 100)
 		{
-			toolbarButtons.Add(
-				new Button()
-				{
-					name = name,
-					func = lua.LuaFunction.CreateDelegate(luaVm, func),
-					width = width
-				});
+			var luaFunc = lua.LuaFunction.CreateDelegate(luaVm, func);
+			Editor_AddToolbarButton(name, luaFunc, width);
+			luaFunc.Dispose();
 		}
 
 		public void Editor_AddToolbarButton(string name, lua.LuaFunction func, int width = 100)
@@ -304,7 +300,7 @@ namespace utils
 
 		}
 
-		public void Editor_AddGraph(
+		public void Editor_AddGraph_Native(
 			string name, string unitName, System.Func<float> func,
 			float time, float duration, float x, float y, float w, float h, Color color)
 		{

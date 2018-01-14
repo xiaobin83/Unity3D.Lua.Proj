@@ -27,7 +27,7 @@ namespace utils
 		{
 			Editor_SetArea(2 * Screen.width / 3, 0, Screen.width / 3, Screen.height);
 			show = true;
-			Editor_AddToolbarButton("PopUp", Editor_TogglePopUp);
+			Editor_AddToolbarButton_Native("PopUp", Editor_TogglePopUp);
 		}
 
 	}
