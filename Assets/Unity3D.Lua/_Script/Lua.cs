@@ -471,7 +471,7 @@ namespace lua
 			// cpath
 			path = Application.dataPath;
 			path = System.IO.Path.Combine(path, pathToUnity3DLua);
-			path = System.IO.Path.Combine(path, "Windows");
+			path = System.IO.Path.Combine(path, "Libs/Windows");
 			if (IntPtr.Size > 4)
 				path = System.IO.Path.Combine(path, "x86_64");
 			else

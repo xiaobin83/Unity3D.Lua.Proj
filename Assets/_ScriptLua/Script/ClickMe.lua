@@ -2,6 +2,8 @@ local ClickMe = {}
 local Button = csharp.checked_import('UnityEngine.UI.Button, UnityEngine.UI')
 local Debug = csharp.checked_import('UnityEngine.Debug, UnityEngine')
 local WaitForSeconds = csharp.checked_import('UnityEngine.WaitForSeconds, UnityEngine')
+local Math = require 'unity.Math'
+require 'unity.Debug'
 
 function ClickMe._Init(instance)
     instance.value = 10
@@ -27,6 +29,7 @@ function ClickMe:Awake()
 end
 
 function ClickMe:OnClick()
+	_LogD(tostring(Math.Vector3(1, 2, 3)))
 	Debug.Log('OnClick in Lua ' .. self.value)
 	local val = self.value
 	local co = coroutine.create(

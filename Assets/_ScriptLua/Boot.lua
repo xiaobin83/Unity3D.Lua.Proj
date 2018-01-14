@@ -1,6 +1,6 @@
 local Boot = {}
 
-local Unity = require 'Unity'
+local Unity = require 'unity.Unity'
 
 local Color = csharp.checked_import('UnityEngine.Color')
 function Boot:Start()
