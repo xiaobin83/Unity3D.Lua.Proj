@@ -2889,8 +2889,14 @@ namespace lua
 		{
 			if (value == null)
 				return null;
+			
+			var valueType = value.GetType();
 
-			if (value.GetType() == type)
+			if (valueType == type)
+			{
+				return value;
+			}
+			else if (type.IsAssignableFrom(valueType))
 			{
 				return value;
 			}
