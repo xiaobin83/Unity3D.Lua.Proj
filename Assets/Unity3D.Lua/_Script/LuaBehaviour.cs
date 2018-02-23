@@ -292,9 +292,8 @@ namespace lua
 				// stack: behaviour table, meta, script table
 				L.DoString("return function(be, script)\n" +
 							"  return function(t, key)\n" +
-							"    local val = script[key]\n"	+
-							"    if type(val) == 'nil' then val = be[key] end\n" +
-							"    return val\n" +
+							"    local val = script[key]\n" +
+							"    return val or (type(val) == 'nil' and be[key])\n"	+
 							"  end\n" +
 							"end", 1, "LuaBehaviour_GetMetaIndexFunction");
 				L.PushRef(handleToThis);
@@ -638,6 +637,8 @@ namespace lua
 			}
 		}
 
+
+
 		public void SendLuaMessage(string message, object obj)
 		{
 			if (!scriptLoaded) return;
@@ -646,7 +647,7 @@ namespace lua
 			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
 			{
 				Api.lua_pushvalue(L, -2);
-				L.PushObject(obj);
+				L.PushValue(obj);
 				try
 				{
 					L.Call(2, 0);

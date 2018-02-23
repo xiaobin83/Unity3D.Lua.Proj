@@ -21,6 +21,22 @@ namespace lua
 		public void Unload()
 		{
 			Debug.Assert(luaVm != null);
+
+			if (Api.LUA_TFUNCTION == Api.lua_getglobal(luaVm, "_atexit"))
+			{
+				try
+				{
+					luaVm.Call(0, 0);
+				}
+				catch (System.Exception e)
+				{
+					Debug.LogError(e);
+				}
+			}
+			else
+			{
+				Api.lua_pop(luaVm, 1);
+			}
 			luaVm.Dispose();
 			luaVm = null;
 		}

@@ -390,6 +390,7 @@ namespace lua
 			catch (Exception e)
 			{
 				Api.lua_settop(L, top);
+				Config.LogError(e.Message);
 				throw e;
 			}
 		}
