@@ -2601,7 +2601,7 @@ namespace lua
 			PushValueInternal(L, value);
 		}
 
-		internal static void PushValueInternal(IntPtr L, object value)
+		public static void PushValueInternal(IntPtr L, object value)
 		{
 			if (value == null)
 			{
@@ -3098,7 +3098,7 @@ namespace lua
 			CallInternal(L, nargs, nresults);
 		}
 
-		internal static void CallInternal(IntPtr L, int nargs, int nresults)
+		public static void CallInternal(IntPtr L, int nargs, int nresults)
 		{
 			var stackTop = Api.lua_gettop(L) - nargs - 1; // function and args
 
