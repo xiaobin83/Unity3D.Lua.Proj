@@ -86,7 +86,7 @@ namespace lua
 			if (luaVm == L) return;
 			if (L != null)
 			{
-				Debug.LogWarning("Lua state chagned, LuaBehaviour will run in new state.");
+				Config.LogWarning("Lua state chagned, LuaBehaviour will run in new state.");
 			}
 			L = luaVm;
 		}
@@ -188,6 +188,8 @@ namespace lua
 			OnDrawGizmosSelected,
 			OnGUI,
 
+			OnAnimationEvent,
+
 			_Count
 		}
 
@@ -238,7 +240,7 @@ namespace lua
 			}
 			else
 			{
-				Debug.LogWarning("script already loaded.");
+				Config.LogWarning("script already loaded.");
 			}
 		}
 
@@ -258,13 +260,13 @@ namespace lua
 		{
 			if (L == null || !L.valid)
 			{
-				Debug.LogError("Call LuaBehaviour.SetLua first.");
+				Config.LogError("Call LuaBehaviour.SetLua first.");
 				return;
 			}
 
 			if (string.IsNullOrEmpty(scriptName))
 			{
-				Debug.LogWarning("LuaBehaviour with empty scriptName.");
+				Config.LogWarning("LuaBehaviour with empty scriptName.");
 				return;
 			}
 
@@ -439,7 +441,7 @@ namespace lua
 			}
 			else
 			{
-				Debug.LogWarningFormat("No Lua script running with {0}.", gameObject.name);
+				Config.LogWarning(string.Format("No Lua script running with {0}.", gameObject.name));
 			}
 		}
 
@@ -457,7 +459,7 @@ namespace lua
 				}
 				catch (Exception e)
 				{
-					Debug.LogErrorFormat("{0}._Init failed: {1}.", scriptName, e.Message);
+					Config.LogError(string.Format("{0}._Init failed: {1}.", scriptName, e.Message));
 				}
 			}
 			else
@@ -520,7 +522,7 @@ namespace lua
 		{
 			if (!scriptLoaded) return null;
 
-			Debug.Log("InvokeLuaMethod " + method);
+			Config.Log("InvokeLuaMethod " + method);
 
 			var top = Api.lua_gettop(L);
 			try
@@ -548,64 +550,38 @@ namespace lua
 			catch (Exception e)
 			{
 				Api.lua_settop(L, top);
-				Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, method, e.Message);
+				Config.LogError(string.Format("Invoke {0}.{1} failed: {2}", scriptName, method, e.Message));
 			}
 			return null;
 		}
 
-		public void BroadcastLuaMessage(string message, LuaTable obj)
+		public void BroadcastLuaMessage(string message, params object[] objs)
 		{
 			if(!scriptLoaded) return;
 
-			var children = GetComponentsInChildren<LuaBehaviour>();
-			if(children == null)
-			{
-				return;
-			}
-
+			var children = ListPool<LuaBehaviour>.Alloc();
+			GetComponentsInChildren(includeInactive: false, result: children);
 			foreach(var ch in children)
 			{
-				ch.SendLuaMessage(message, obj);
+				ch.SendLuaMessage(message, objs);
 			}
+			ListPool<LuaBehaviour>.Release(children);
 		}
 
-		public void SendLuaMessageUpwards(string message, LuaTable obj)
+		public void SendLuaMessageUpwards(string message, params object[] objs)
 		{
 			if(!scriptLoaded) return;
 
-			var parents = GetComponentsInParent<LuaBehaviour>();
-			if(parents == null)
-			{
-				return;
-			}
-
+			var parents = ListPool<LuaBehaviour>.Alloc();
+			GetComponentsInParent(includeInactive: false, results: parents);
 			foreach(var p in parents)
 			{
-				p.SendLuaMessage(message, obj);
+				p.SendLuaMessage(message, objs);
 			}
+			ListPool<LuaBehaviour>.Release(parents);
 		}
-
-		public void SendLuaMessage(string message, LuaTable tbl)
-		{
-			if(!scriptLoaded) return;
-
-			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
-			{
-				Api.lua_pushvalue(L, -2);
-				tbl.Push();
-				try
-				{
-					L.Call(2, 0);
-				}
-				catch(Exception e)
-				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
-				}
-			}
-			Api.lua_pop(L, 1); // pop behaviour table
-		}
-
+		
+		// use SendLuaMessage2 as message passed though SendMessage instead of SendLuaMessage
 		public void SendLuaMessage2(string message)
 		{
 			if (!scriptLoaded || string.IsNullOrEmpty(message)) return;
@@ -631,15 +607,14 @@ namespace lua
 				}
 				catch (Exception e)
 				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+					Config.LogError(string.Format("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message));
 				}
 				Api.lua_settop(L, top);
 			}
 		}
 
 
-
-		public void SendLuaMessage(string message, object obj)
+		public void SendLuaMessage(string message, params object[] objs)
 		{
 			if (!scriptLoaded) return;
 
@@ -647,35 +622,22 @@ namespace lua
 			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
 			{
 				Api.lua_pushvalue(L, -2);
-				L.PushValue(obj);
+				var numParams = 0;
+				if (objs != null)
+				{
+					for (int i = 0; i < objs.Length; ++i)
+					{
+						L.PushValue(objs[i]);
+						++numParams;
+					}
+				}
 				try
 				{
-					L.Call(2, 0);
+					L.Call(numParams + 1, 0);
 				}
-				catch(Exception e)
+				catch (Exception e)
 				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
-				}
-			}
-			Api.lua_pop(L, 1); // pop behaviour table
-		}
-
-		public void SendLuaMessage(string message, string parameter)
-		{
-			if (!scriptLoaded) return;
-
-			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			if(Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
-			{
-				Api.lua_pushvalue(L, -2);
-				Api.lua_pushstring(L, parameter);
-				try
-				{
-					L.Call(2, 0);
-				}
-				catch(Exception e)
-				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+					Config.LogError(string.Format("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message));
 				}
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
@@ -683,22 +645,7 @@ namespace lua
 
 		public void SendLuaMessage(string message)
 		{
-			if (!scriptLoaded) return;
-
-			Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
-			if (Api.lua_getfield(L, -1, message) == Api.LUA_TFUNCTION)
-			{
-				Api.lua_pushvalue(L, -2);
-				try
-				{
-					L.Call(1, 0);
-				}
-				catch (Exception e)
-				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
-				}
-			}
-			Api.lua_pop(L, 1); // pop behaviour table
+			SendLuaMessage2(message);
 		}
 
 		List<LuaThread> runningCoroutines = new List<LuaThread>();
@@ -736,6 +683,11 @@ namespace lua
 			return false;
 		}
 
+		void OnAnimationEvent(AnimationEvent evt)
+		{
+			SendLuaMessage(Message.OnAnimationEvent, evt);
+		}
+
 		public void SendLuaMessage(Message message)
 		{
 			if (L == null || !L.valid) return;
@@ -759,7 +711,7 @@ namespace lua
 				}
 				catch (Exception e)
 				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+					Config.LogError(string.Format("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message));
 				}
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
@@ -797,7 +749,7 @@ namespace lua
 				}
 				catch (Exception e)
 				{
-					Debug.LogErrorFormat("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message);
+					Config.LogError(string.Format("Invoke {0}.{1} failed: {2}", scriptName, message, e.Message));
 				}
 			}
 			Api.lua_pop(L, 1); // pop behaviour table
@@ -827,12 +779,21 @@ namespace lua
 			}
 			catch (Exception e)
 			{
-				Debug.LogError(e.Message);
+				Config.LogError(e.Message);
 			}
 			return false;
 		}
 
 		// non-throw
+		public string[] GetObjectKeys()
+		{
+			return objectKeys;
+		}
+		public UnityEngine.Object[] GetObjects()
+		{
+			return objects;
+		}
+
 		public UnityEngine.Object FindObject(string key)
 		{
 			var index = System.Array.FindIndex(objectKeys, (k) => k == key);
@@ -888,19 +849,6 @@ namespace lua
 		}
 
 #if UNITY_EDITOR
-		public static System.Action debuggeePoll;
-		static int debuggeeUpdatedFrameCount = 0;
-
-		void LateUpdate()
-		{
-			if (debuggeeUpdatedFrameCount != Time.frameCount)
-			{
-				if (debuggeePoll != null)
-					debuggeePoll();
-				debuggeeUpdatedFrameCount = Time.frameCount;
-			}
-		}
-
 		public bool IsInitFuncDumped()
 		{
 			return !string.IsNullOrEmpty(scriptName) && _InitChunk != null && _InitChunk.Length > 0;

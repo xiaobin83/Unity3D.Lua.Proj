@@ -69,30 +69,8 @@ namespace lua
 						"  local debuggee =	require	'vscode-debuggee'\n" +
 						"  local startResult, startType = debuggee.start(json, { dumpCommunication = " + (debugDebuggee ? "true" : "false" ) + "})\n" +
 						"  Debug.Log('start debuggee ' .. startType .. ' ' .. tostring(startResult))\n" +
-						"  return debuggee.poll\n" + 
 						"end");
-					L.Call(0, 2);
-					if (debuggeePoll != null)
-					{
-						LuaBehaviour.debuggeePoll = null;
-						debuggeePoll.Dispose();
-						debuggeePoll = null;
-					}
-					debuggeePoll = LuaFunction.MakeRefTo(L, -2);
-					LuaBehaviour.debuggeePoll = delegate ()
-					{
-						try
-						{
-							debuggeePoll.Invoke();
-						}
-						catch (Exception e)
-						{
-							Debug.LogError("debug session is ended unexpected: " + e.Message);
-							LuaBehaviour.debuggeePoll = null;
-							debuggeePoll.Dispose();
-							debuggeePoll = null;
-						}
-					};
+					L.Call(0, 0);
 				}
 				catch (Exception e)
 				{

@@ -27,11 +27,11 @@ using UnityEngine.EventSystems;
 
 namespace lua
 {
-	class LuaLowMemoryHandler : LuaInstanceBehaviour0
+	public class LuaLowMemoryHandler : LuaInstanceBehaviour0
 	{
 		static System.Action onLowMemory;
 		static bool watchingMemory;
-		static void OnLowMemory()
+		public static void OnLowMemory()
 		{
 			if (onLowMemory != null)
 			{
