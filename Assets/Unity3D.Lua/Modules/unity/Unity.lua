@@ -53,7 +53,7 @@ local Unity = {
 }
 
 local LuaBehaviour = csharp.checked_import('lua.LuaBehaviour')
-Unity.Lua = {
+Unity.lua = {
 	LuaBehaviour = LuaBehaviour,
 	GetLBT = function(gameObject)
 		local lb = gameObject:GetComponent(LuaBehaviour)

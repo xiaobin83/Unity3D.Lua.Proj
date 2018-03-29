@@ -11,7 +11,7 @@ namespace utils
 {
 	public class WebRequest2
 	{
-		public delegate void WebRequestRespondedCallback(WebExceptionStatus s, HttpStatusCode code, string payload, CookieCollection cookies, WebHeaderCollection headers, Context context);
+		public delegate void WebRequestRespondedCallback(WebExceptionStatus s, HttpStatusCode code, object payload, CookieCollection cookies, WebHeaderCollection headers, Context context);
 
 		public class Context
 		{
@@ -107,8 +107,8 @@ namespace utils
 			HttpWebResponse resp;
 			System.IO.MemoryStream outputStream = new System.IO.MemoryStream();
 			Context context;
-			string payload_;
-			public string payload
+			object payload_;
+			public object payload
 			{
 				get
 				{
@@ -122,9 +122,8 @@ namespace utils
 								try
 								{
 									var bytes = new System.IO.BinaryReader(outputStream).ReadBytes((int)outputStream.Length);
-									var str = Convert.ToBase64String(bytes);
-									Debug.LogFormat("RAW RESPONSE: binary data received {0} bytes", bytes.Length);
-									payload_ = str;
+									payload_ = bytes;
+									Debug.LogFormat("BINARY RESPONSE: {0} bytes", bytes.Length);
 								}
 								catch (Exception e)
 								{
@@ -143,7 +142,7 @@ namespace utils
 						}
 						outputStream = null;
 					}
-					return payload_ != null ? payload_ : string.Empty;
+					return payload_;
 				}
 			}
 
@@ -575,9 +574,7 @@ namespace utils
 						if (s == WebExceptionStatus.Success
 						&& code == HttpStatusCode.OK)
 						{
-							var base64data = payload;
-							var data = System.Convert.FromBase64String(base64data);
-							complete(data);
+							complete((byte[])payload);
 						}
 						else
 						{
