@@ -34,3 +34,7 @@ Temp/
 
 *.orig
 *.orig.meta
+
+*.pyc
+*.pyc.meta
+
