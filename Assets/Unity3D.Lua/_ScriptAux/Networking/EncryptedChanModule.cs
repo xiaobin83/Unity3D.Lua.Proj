@@ -1,5 +1,6 @@
 ﻿using System;
 using networking;
+using G00D1DEA.Pike;
 
 public class EncryptedChanModule : IChanModule
 {
