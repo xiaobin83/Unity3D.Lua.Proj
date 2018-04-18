@@ -717,6 +717,11 @@ namespace lua
 			Api.lua_setglobal(L, name);
 		}
 
+		public void AddModule(string name, lua.Api.lua_CFunction open)
+		{
+			Api.luaL_requiref(L, name, open, 0);
+		}
+
 		public void RunScript(string scriptName)
 		{
 			string scriptPath;

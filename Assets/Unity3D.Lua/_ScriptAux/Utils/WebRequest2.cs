@@ -559,9 +559,9 @@ namespace utils
 			}
 		}
 
-		public static void Get(System.Uri srv, string function, Dictionary<string, object> parameter, WebRequestRespondedCallback callback, Context context = null)
+		public static void Get(System.Uri srv, string function, string queryString, WebRequestRespondedCallback callback, Context context = null)
 		{
-			MakeRequestTo(srv, function, Method.GET, parameter, callback, context: context);
+			MakeRequestTo(srv, function, Method.GET, null, callback, context, queryString);
 		}
 
 		public static void Download(string url, System.Action<byte[]> complete)
@@ -590,9 +590,9 @@ namespace utils
 			}
 		}
 
-		public static void Post(System.Uri srv, string function, Dictionary<string, object> parameter, WebRequestRespondedCallback callback, Context context = null,string parametersStr = "")
+		public static void Post(System.Uri srv, string function, Dictionary<string, object> parameter, WebRequestRespondedCallback callback, Context context = null)
 		{
-			MakeRequestTo(srv, function, Method.POST, parameter, callback, context: context,parametersStr:parametersStr);
+			MakeRequestTo(srv, function, Method.POST, parameter, callback, context);
 		}
 
 		public static void GetWithAuth(System.Uri srv, string function, Dictionary<string, object> parameter, WebRequestRespondedCallback callback, Context context = null)

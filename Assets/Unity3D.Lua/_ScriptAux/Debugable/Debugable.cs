@@ -15,6 +15,7 @@ namespace utils
 		{
 			public string name;
 			public lua.LuaFunction func;
+			public System.Action action;
 			public int width = 100;
 		}
 		List<Button> buttons = new List<Button>();
@@ -32,6 +33,7 @@ namespace utils
 		{
 			public string name;
 			public string unitName;
+			public System.Func<float> value;
 			public lua.LuaFunction func;
 			public float time;
 			public float sampleStepDuration;
@@ -55,7 +57,7 @@ namespace utils
 				if (Time.realtimeSinceStartup > nextSampleTime)
 				{
 					nextSampleTime = Time.realtimeSinceStartup + sampleStepDuration;
-					var value = (float)(double)func.Invoke1();
+					var value = this.value();
 					values.Add(value);
 					if (value > maxValue)
 						maxValue = value;
@@ -145,13 +147,6 @@ namespace utils
 		bool showPopUp;
 
 
-		static lua.Lua luaVm;
-
-		public static void SetLua(lua.Lua luaVm)
-		{
-			Debugable.luaVm = luaVm;
-		}
-
 		protected virtual void Update()
 		{
 #if UNITY_EDITOR
@@ -186,7 +181,7 @@ namespace utils
 					{
 						if (GUILayout.Button(b.name, GUILayout.Width(b.width)))
 						{
-							b.func.Invoke();
+							b.action();
 						}
 					}
 					GUILayout.EndHorizontal();
@@ -235,7 +230,7 @@ namespace utils
 				{
 					if (GUILayout.Button(b.name, GUILayout.Width(b.width)))
 					{
-						b.func.Invoke();
+						b.action();
 					}
 				}
 				GUILayout.EndScrollView();
@@ -264,29 +259,36 @@ namespace utils
 
 		public void Editor_AddButton(string name, lua.LuaFunction func, int width = 100)
 		{
-			buttons.Add(
-				new Button()
-				{
-					name = name,
-					func = func.Retain()
-				});
-		}
-		public void Editor_AddToolbarButton_Native(string name, System.Action func, int width = 100)
-		{
-			var luaFunc = lua.LuaFunction.CreateDelegate(luaVm, func);
-			Editor_AddToolbarButton(name, luaFunc, width);
-			luaFunc.Dispose();
+			var b = new Button()
+			{
+				name = name,
+				func = func.Retain()
+			};
+			b.action = () => b.func.Invoke();
+			buttons.Add(b);
 		}
 
-		public void Editor_AddToolbarButton(string name, lua.LuaFunction func, int width = 100)
+		public void Editor_AddToolbarButton_Native(string name, System.Action action, int width = 100)
 		{
 			toolbarButtons.Add(
 				new Button()
 				{
 					name = name,
-					func = func.Retain(),
+					action = action,
 					width = width,
 				});
+		}
+
+		public void Editor_AddToolbarButton(string name, lua.LuaFunction func, int width = 100)
+		{
+			var b = new Button();
+			b.name = name;
+			b.func = func.Retain();
+			b.action = () => {
+				b.func.Invoke();
+			};
+			b.width = width;
+			toolbarButtons.Add(b);
 		}
 
 		public void Editor_AddStatsString(string name, lua.LuaFunction func)
@@ -301,12 +303,21 @@ namespace utils
 		}
 
 		public void Editor_AddGraph_Native(
-			string name, string unitName, System.Func<float> func,
+			string name, string unitName, System.Func<float> value,
 			float time, float duration, float x, float y, float w, float h, Color color)
 		{
-			var luaFunc = lua.LuaFunction.CreateDelegate(luaVm, func);
-			Editor_AddGraph(name, unitName, luaFunc, time, duration, x, y, w, h, color);
-			luaFunc.Dispose();
+			var g = new Graph()
+			{
+				name = name,
+				unitName = unitName,
+				value = value,
+				time = time,
+				sampleStepDuration = duration,
+				rect = new Rect(x, y, w, h),
+				color = color
+			};
+			g.Initialize();
+			graphs.Add(g);
 		}
 
 		public void Editor_AddGraph(
@@ -327,6 +338,7 @@ namespace utils
 				rect = new Rect(x, y, w, h),
 				color = color
 			};
+			g.value = () => (float)(double)g.func.Invoke1();
 			g.Initialize();
 			graphs.Add(g);
 		}
@@ -356,7 +368,8 @@ namespace utils
 		{
 			foreach (var g in graphs)
 			{
-				g.func.Dispose();
+				if (g.func != null)
+					g.func.Dispose();
 			}
 			graphs.Clear();
 			foreach (var s in statusStrings)
@@ -366,12 +379,14 @@ namespace utils
 			statusStrings.Clear();
 			foreach (var b in toolbarButtons)
 			{
-				b.func.Dispose();
+				if (b.func != null)
+					b.func.Dispose();
 			}
 			toolbarButtons.Clear();
 			foreach (var b in buttons)
 			{
-				b.func.Dispose();
+				if (b.func != null)
+					b.func.Dispose();
 			}
 			buttons.Clear();
 		}

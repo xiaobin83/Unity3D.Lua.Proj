@@ -107,7 +107,7 @@ public class LuaScriptLoader {
 		}
 		scriptName = scriptName.ToLower();
 
-		var s = ResMgr.LoadBytes("_LuaRoot/" + scriptName);
+		var s = utils.ResMgr.LoadBytes("_LuaRoot/" + scriptName);
 		if (s != null)
 		{
 			scriptPath = scriptName;
