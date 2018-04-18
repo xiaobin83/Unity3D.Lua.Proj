@@ -10,26 +10,15 @@ namespace utils
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
 		public static int Open(IntPtr L)
 		{
-			lua.Api.lua_newtable(L);
-
-
-			lua.Api.lua_pushstring(L, "Download");
-			lua.Api.lua_pushcclosure(L, Download_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
-			lua.Api.lua_pushstring(L, "POST");
-			lua.Api.lua_pushcclosure(L, POST_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
-			lua.Api.lua_pushstring(L, "GET");
-			lua.Api.lua_pushcclosure(L, GET_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
+			var reg = new lua.Api.luaL_Reg[]
+			{
+				new lua.Api.luaL_Reg("Download", Download_Lua),
+				new lua.Api.luaL_Reg("POST", POST_Lua),
+				new lua.Api.luaL_Reg("GET", GET_Lua),
+			};
+			lua.Api.luaL_newlib(L, reg);
 			return 1;
 		}
-
-
-
 
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
 		public static int Download_Lua(IntPtr L)

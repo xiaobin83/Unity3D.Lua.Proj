@@ -14,26 +14,30 @@ namespace utils
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
 		public static int Open(IntPtr L)
 		{
-			lua.Api.lua_newtable(L);
-
-			lua.Api.lua_pushstring(L, "ConnectToFileDb");
-			lua.Api.lua_pushcclosure(L, ConnectToFileDb_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
-			lua.Api.lua_pushstring(L, "ExecuteReader");
-			lua.Api.lua_pushcclosure(L, ExecuteReader_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
-			lua.Api.lua_pushstring(L, "Close");
-			lua.Api.lua_pushcclosure(L, Close_Lua, 0);
-			lua.Api.lua_settable(L, -3);
-
+			var reg = new lua.Api.luaL_Reg[]
+			{
+				new lua.Api.luaL_Reg("ConnectToResourceDB", ConnectToResourceDB_Lua),
+				new lua.Api.luaL_Reg("ConnectToFileDB", ConnectToFileDB_Lua),
+				new lua.Api.luaL_Reg("ExecuteReader", ExecuteReader_Lua),
+				new lua.Api.luaL_Reg("Close", Close_Lua),
+			};
+			lua.Api.luaL_newlib(L, reg);
 			return 1;
 		}
 
 
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
-		static int ConnectToFileDb_Lua(IntPtr L)
+		static int ConnectToFileDB_Lua(IntPtr L)
+		{
+			var dbPath = lua.Api.lua_tostring(L, 1);
+			var conn = new SqliteConnection("URI=file:" + dbPath);
+			conn.Open();
+			lua.Lua.PushObjectInternal(L, conn);
+			return 1;
+		}
+
+		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
+		static int ConnectToResourceDB_Lua(IntPtr L)
 		{
 			var path = lua.Api.lua_tostring(L, 1);
 			var overwrite = false;
