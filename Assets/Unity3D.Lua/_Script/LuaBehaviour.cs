@@ -25,7 +25,7 @@ using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.EventSystems;
+using AOT;
 
 namespace lua
 {
@@ -256,6 +256,31 @@ namespace lua
 			return null;
 		}
 
+
+		[MonoPInvokeCallback(typeof(Api.lua_CFunction))]
+		static int FuncGetMetaIndexer(IntPtr L)
+		{
+			try
+			{
+				Lua.DoStringInternal(
+					L,
+					"return function(be, script)\n" +
+					"  return function(t, key)\n" +
+					"    local val = script[key]\n" +
+					"    return val or (type(val) == 'nil' and be[key])\n" +
+					"  end\n" +
+					"end", 1, "LuaBehaviour_MetaIndexer");
+				return 1;
+			}
+			catch (Exception e)
+			{
+				Config.LogError("create FuncGetMetaIndexer error");
+				Config.LogError(e.Message);
+				return 0;
+			}
+		}
+
+		
 		void Awake()
 		{
 			if (L == null || !L.valid)
@@ -292,12 +317,7 @@ namespace lua
 			if (Api.lua_istable(L, -1)) // set metatable and bind messages
 			{
 				// stack: behaviour table, meta, script table
-				L.DoString("return function(be, script)\n" +
-							"  return function(t, key)\n" +
-							"    local val = script[key]\n" +
-							"    return val or (type(val) == 'nil' and be[key])\n"	+
-							"  end\n" +
-							"end", 1, "LuaBehaviour_GetMetaIndexFunction");
+				Api.luaL_requiref(L, "LuaBehaviour_FuncGetMetaIndexer", FuncGetMetaIndexer, 0);
 				L.PushRef(handleToThis);
 				Api.lua_pushvalue(L, -3);
 				L.Call(2, 1);
@@ -320,6 +340,7 @@ namespace lua
 					{
 						messageFlag = messageFlag | MakeFlag(i);
 						messageRef[(int)i] = Api.luaL_ref(L, -2); // func pops, and make ref in behaviour table
+						// opt: messageRef should in script, not behaviour
 					}
 					else
 					{

@@ -7,6 +7,7 @@ import cmd
 import type_restrict
 import export_sheet
 import imp
+import modifier_trival
 
 
 
@@ -14,7 +15,10 @@ def ExportGameData(_1, _2):
 	pass
 
 def exportSheet(sheet, wb, filename, disableColoredMatrix, command):
-	field_checker = type_restrict.AllPassChecker
+	context = {
+		'field_checker': type_restrict.AllPassChecker,
+		'modifier': modifier_trival.NewModifier(),
+	}
 	for r in xrange(0, sheet.nrows):
 		firstCell = sheet.cell(r, 0)
 		if firstCell.ctype != xlrd.XL_CELL_TEXT:
@@ -26,7 +30,6 @@ def exportSheet(sheet, wb, filename, disableColoredMatrix, command):
 			if scriptName == 'export_as_colored_matrix':
 				if disableColoredMatrix:
 					raise error.Err(sheet.name, 'requires export_as_colored_matrix but feature disabled')
-			exportScript = __import__(scriptName)
 			params = []
 			for c in xrange(1, sheet.ncols):
 				cell = sheet.cell(r, c)
@@ -42,11 +45,14 @@ def exportSheet(sheet, wb, filename, disableColoredMatrix, command):
 			if scriptName == 'type_restrict':
 				if len(params) != 1:
 					raise error.Err('export_gamedata.exportSheet', 'type_restrict requires restrict content')
-				field_checker = type_restrict.GetChecker(params[0])
+				context['field_checker'] = type_restrict.GetChecker(params[0])
+			elif scriptName == 'modifier':
+				context['modifier'] = __import__(scriptName + '_' + params[0]).NewModifier(params[1:])
 			else:
-				return exportScript.ExportGameData(sheet, wb, r+1, params, field_checker)
+				exportScript = __import__(scriptName)
+				return exportScript.ExportGameData(sheet, wb, r+1, params, context)
 		elif firstCellStr == 'ID':
-			return export_sheet.ExportGameData(sheet, wb, r, None, field_checker)
+			return export_sheet.ExportGameData(sheet, wb, r, None, context)
 		elif command is not None:
 			subprocess.call([command, filename, sheet.name])
 			return {}

@@ -634,6 +634,14 @@ namespace lua
 #if UNITY_EDITOR
 			Editor_UpdatePath();
 #endif
+
+			AddModule("pb", lua.CModules.luaopen_pb);
+			AddModule("rapidjson", lua.CModules.luaopen_rapidjson);
+			AddModule("bson", lua.CModules.luaopen_bson);
+			AddModule("webrequest2", utils.WebRequest2_Lua.Open);
+			AddModule("sqlite", utils.SQLite_Lua.Open);
+			AddModule("nativeutils", utils.NativeUtils_Lua.Open);
+			AddModule("resmgr", utils.ResMgr_Lua.Open);
 		}
 
 		public void Dispose()
@@ -720,6 +728,7 @@ namespace lua
 		public void AddModule(string name, lua.Api.lua_CFunction open)
 		{
 			Api.luaL_requiref(L, name, open, 0);
+			Api.lua_pop(L, 1);
 		}
 
 		public void RunScript(string scriptName)
@@ -3068,7 +3077,13 @@ namespace lua
 			return 0;
 		}
 
+
 		public void DoString(string luaScript, int nrets = 0, string name = null)
+		{
+			DoStringInternal(L, luaScript, nrets, name);
+		}
+
+		public static void DoStringInternal(IntPtr L, string luaScript, int nrets = 0, string name = null)
 		{
 			var ret = Api.luaL_loadbufferx(L, 
 				luaScript, 
@@ -3081,8 +3096,9 @@ namespace lua
 				Api.lua_pop(L, 1);
 				throw new LuaException(err, ret);
 			}
-			Call(0, nrets);
+			CallInternal(L, 0, nrets);
 		}
+
 
 
 		// Invoking Lua Function

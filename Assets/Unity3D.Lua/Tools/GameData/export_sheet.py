@@ -49,7 +49,7 @@ def ShouldSkipRow(sheet, row):
 			return True
 	return False
 
-def ExportGameData(sheet, book, startRow, params, field_checker):
+def ExportGameData(sheet, book, startRow, params, context):
 	while ShouldSkipRow(sheet, startRow):
 		startRow = startRow + 1
 
@@ -59,12 +59,16 @@ def ExportGameData(sheet, book, startRow, params, field_checker):
 	keysIndex = {}
 	for c in sheet.row(startRow):
 		col = col + 1
+		if c.ctype == xlrd.XL_CELL_BLANK or c.ctype == xlrd.XL_CELL_EMPTY:
+			break
 		if c.ctype != xlrd.XL_CELL_TEXT:
 			raise error.ErrInvalidFormatAt(sheet.name, 0, col)
 		keysIndex[col] = c.value
 
 	data = {}
 
+	field_checker = context['field_checker']
+	modifier = context['modifier']
 	for r in xrange(startRow + 1, sheet.nrows):
 		if not ShouldSkipRow(sheet, r):
 			cell = sheet.cell(r, 0)
@@ -81,17 +85,20 @@ def ExportGameData(sheet, book, startRow, params, field_checker):
 			obj = {}
 			data[key] = obj
 			for c in xrange(1, sheet.ncols):
+				if not keysIndex.has_key(c):
+					break
+				cellName = keysIndex[c]
 				cell = sheet.cell(r, c)
 				checker = GetFieldChecker(keysIndex[c], sheet.name, r, c, field_checker)
 				try:
-					cellData = ExportCell(cell, book, checker)
+					cellData = modifier(cellName, ExportCell(cell, book, checker))
 				except Exception, e:
 					print >> sys.stderr, e
 					raise error.ErrInvalidFormatAt(sheet.name, r, c)
 				if cellData == errCellError:
 					raise error.ErrInvalidFormatAt(sheet.name, r, c)
 				if cellData is not None:
-					obj[keysIndex[c]] = cellData
+					obj[cellName] = cellData
 	return data
 
 

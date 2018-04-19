@@ -84,10 +84,4 @@ public class GameTools : EditorWindow {
 		GUILayout.EndHorizontal();
 	}
 
-
-
-	void ExportGameData(string path)
-	{
-
-	}
 }

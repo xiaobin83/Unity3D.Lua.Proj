@@ -7,12 +7,12 @@ def getColor(sheet, book, r, c):
 	xf_idx = sheet.cell_xf_index(r, c)
 	return book.xf_list[xf_idx].background.pattern_colour_index
 
-def ExportGameData(sheet, book, startRow, params, field_checker):
+def ExportGameData(sheet, book, startRow, _params, _context):
 	while ShouldSkipRow(sheet, startRow):
 		startRow = startRow + 1
 	# get colors
 	# edge
-	edgeColor = getColor(sheet, book, startRow, 0) 
+	edgeColor = getColor(sheet, book, startRow, 0)
 
 	# color name
 	colors = {}
@@ -20,8 +20,8 @@ def ExportGameData(sheet, book, startRow, params, field_checker):
 		color = getColor(sheet, book, startRow, c)
 		cell = sheet.cell(startRow, c)
 		colors[color] = str(cell.value)
-	
-	# find edge 
+
+	# find edge
 	startRow = startRow + 1
 	stride = 0
 	for c in xrange(0, sheet.ncols):
@@ -33,7 +33,7 @@ def ExportGameData(sheet, book, startRow, params, field_checker):
 		stride = sheet.ncols
 	if stride <= 0:
 		raise error.Err(sheet.name, 'edge error')
-	
+
 	matrix = []
 	comments = {}
 	for r in xrange(startRow + 1, sheet.nrows):

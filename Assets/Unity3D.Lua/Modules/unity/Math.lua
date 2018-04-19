@@ -1,18 +1,20 @@
+local Unity = require 'unity.Unity'
+
 local v2d = require 'unity.Math.Vector2'
 local v3d = require 'unity.Math.Vector3'
 local v4d = require 'unity.Math.Vector4'
-local UnityVector2 = csharp.checked_import('UnityEngine.Vector2')
-local UnityVector3 = csharp.checked_import('UnityEngine.Vector3')
-local UnityVector4 = csharp.checked_import('UnityEngine.Vector4')
-local UnityQuaternion = csharp.checked_import('UnityEngine.Quaternion')
-local Mathf = csharp.checked_import('UnityEngine.Mathf')
+local UnityVector2 = Unity.Vector2 
+local UnityVector3 = Unity.Vector3
+local UnityVector4 = Unity.Vector4 
+local UnityQuaternion = Unity.Quaternion
+local UnityMathf = Unity.Mathf
 
 local Math = {}
 
 local kEpsilon = 1e-3
 
 
-Math.infinity = Mathf.Infinity
+Math.infinity = UnityMathf.Infinity
 Math.pi = 3.14159
 Math.invPi = 1 / Math.pi
 Math.arc2Deg = 180*Math.invPi
@@ -49,9 +51,9 @@ local _Round = function(x)
 	return _floor(x + 0.5)
 end
 
-local _random = math.random
+
 local _RandomInUnit = function()
-	return -1 + 2 * _random 
+	return -1 + 2 * math.random()
 end
 ---------------------
 
@@ -68,7 +70,7 @@ setmetatable(
 	})
 
 function Math.Vector2.ToUnity(v)
-	return UnityVector2(unpack(v))
+	return UnityVector2(v.x, v.y)
 end
 
 function Math.Vector2.FromUnity(v)
@@ -114,7 +116,7 @@ setmetatable(
 	})
 
 function Math.Vector3.ToUnity(v)
-	return UnityVector3(unpack(v))
+	return UnityVector3(v.x, v.y, v.z)
 end
 
 function Math.Vector3.FromUnity(v)
@@ -134,9 +136,9 @@ end
 
 function Math.Vector3.Approximate(a, b, epsilon)
 	epsilon = epsilon or kEpsilon 
-	return  _Approximate(a[1], b[1], epsilon)
-		and _Approximate(a[2], b[2], epsilon)
-		and _Approximate(a[3], b[3], epsilon)
+	return  _Approximate(a.x, b.x, epsilon)
+		and _Approximate(a.y, b.y, epsilon)
+		and _Approximate(a.z, b.z, epsilon)
 end
 ------------------------
 
@@ -152,7 +154,7 @@ setmetatable(
 )
 
 function Math.Vector4.ToUnity(v)
-	return UnityVector4(unpack(v))
+	return UnityVector4(v.x, v.y, v.z, v.w)
 end
 
 function Math.Vector4.FromUnity(v)
@@ -162,44 +164,41 @@ end
 
 function Math.Vector4.Approximate(a, b, epsilon)
 	epsilon = epsilon or kEpsilon 
-	return  _Approximate(a[1], b[1], epsilon)
-		and _Approximate(a[2], b[2], epsilon)
-		and _Approximate(a[3], b[3], epsilon)
-		and _Approximate(a[4], b[4], epsilon)
+	return  _Approximate(a.x, b.x, epsilon)
+		and _Approximate(a.y, b.y, epsilon)
+		and _Approximate(a.z, b.z, epsilon)
+		and _Approximate(a.w, b.w, epsilon)
 end
 
 Math.Vector4.quaternionIdentity = Math.Vector4.FromUnity(UnityQuaternion.identity)
 
 ------------------------
 Math.Quaternion = {}
-Math.Quaternion.identity_Unity = UnityQuaternion.identity
-local TU = Math.Vector3.ToUnity
+Math.Quaternion.identityU = UnityQuaternion.identity
+Math.Quaternion.rot180yU = UnityQuaternion.Euler(0, 180, 0)
+
 function Math.Quaternion.FromToRotation(from, to)
-	return UnityQuaternion.FromToRotation(TU(from), TU(to))
+	return UnityQuaternion.FromToRotation(Math.Vector3.ToUnity(from), Math.Vector3.ToUnity(to))
 end
 
 function Math.Quaternion.LookRotation(forward, up)
 	if up then
-		return UnityQuaternion.LookRotation(TU(forward), TU(up))
+		return UnityQuaternion.LookRotation(Math.Vector3.ToUnity(forward), Math.Vector3.ToUnity(up))
 	else
-		return UnityQuaternion.LookRotation(TU(forward))
+		return UnityQuaternion.LookRotation(Math.Vector3.ToUnity(forward))
 	end
 end
 
 function Math.Quaternion.ToUnity(q)
-	return UnityQuaternion(unpack(q)) 
+	return UnityQuaternion(q.x, q.y, q.z, q.w) 
 end
 
 function Math.Quaternion.SlerpU(a, b, t)
 	return UnityQuaternion.Slerp(a, b, t)
 end
 
-function Math.Quaternion.Slerp(a, b, t)
-	return UnityQuaternion.Slerp(TU(a), TU(b), t)
-end
-
 function Math.Quaternion.AngleAxis(angle, axis)
-	return UnityQuaternion.AngleAxis(angle, TU(axis))
+	return UnityQuaternion.AngleAxis(angle, Math.Vector3.ToUnity(axis))
 end
 
 --------------------------

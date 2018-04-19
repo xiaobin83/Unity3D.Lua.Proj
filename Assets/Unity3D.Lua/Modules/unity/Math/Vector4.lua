@@ -1,58 +1,56 @@
-local serpent = require 'serpent' 
-
 local module = {}
 
 local mt = {}
 
 mt.__unm = function(rhs)
-	return module.Vector4D(-rhs[1], -rhs[2], -rhs[3], -rhs[4])
+	return module.Vector4D(-rhs.x, -rhs.y, -rhs.z, -rhs.w)
 end
 	
 mt.__add = function(lhs, rhs)
-	return module.Vector4D(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4])
+	return module.Vector4D(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w)
 end
 
 mt.__sub = function(lhs, rhs)
-	return module.Vector4D(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4])
+	return module.Vector4D(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - rhs.w)
 end
 
 mt.__mul = function(lhs, rhs)
 	if type(rhs) == 'number' then
-		return module.Vector4D(lhs[1] * rhs, lhs[2] * rhs, lhs[3] * rhs, lhs[4] * rhs)
+		return module.Vector4D(lhs.x * rhs, lhs.y * rhs, lhs.z * rhs, lhs.w * rhs)
 	elseif type(lhs) == 'number' then
-		return module.Vector4D(lhs * rhs[1], lhs * rhs[2], lhs * rhs[3], lhs * rhs[4])
+		return module.Vector4D(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z, lhs * rhs.w)
 	else
-		return module.Vector4D(lhs[1] * rhs[1], lhs[2] * rhs[2], lhs[3] * rhs[3], lhs[4] * rhs[4])
+		return module.Vector4D(lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w)
 	end
 end
 
 mt.__div = function(lhs, rhs)
 	if type(rhs) == 'number' then
-		return module.Vector4D(lhs[1] / rhs, lhs[2] / rhs, lhs[3] / rhs, lhs[4]/rhs)
+		return module.Vector4D(lhs.x / rhs, lhs.y / rhs, lhs.z / rhs, lhs.w/rhs)
 	elseif type(lhs) == 'number' then
-		return module.Vector4D(lhs / rhs[1], lhs / rhs[2], lhs / rhs[3], lhs / rhs[4])
+		return module.Vector4D(lhs / rhs.x, lhs / rhs.y, lhs / rhs.z, lhs / rhs.w)
 	else
-		return module.Vector4D(lhs[1] / rhs[1], lhs[1] / rhs[1], lhs[3] / rhs[3], lhs[4] / rhs[4])
+		return module.Vector4D(lhs.x / rhs.x, lhs.x / rhs.x, lhs.z / rhs.z, lhs.w / rhs.w)
 	end
 end
 
 mt.__tostring = function(v)
-	return '{'..v[1]..', '..v[1]..', '..v[3] .. ', '..v[4]..'}'
+	return "[(X:".. v.x .."),(Y:".. v.y .."),(Z:".. v.z .."),(W:"..v.w..")]"
 end
 
 mt.__eq = function(lhs, rhs)
-	return (lhs[1] == rhs[1]) and (lhs[2] == rhs[2]) and (lhs[3] == rhs[3]) and (lhs[4] == rhs[4])
+	return (lhs.x == rhs.x) and (lhs.y == rhs.y) and (lhs.z == rhs.z) and (lhs.w == rhs.w)
 end
 
 local funcs = {}
 function funcs:Dup() 
-	return module.Vector4D(self[1], self[2], self[3], self[4])
+	return module.Vector4D(self.x, self.y, self.z, self.w)
 end
 
 mt.__index = funcs
 
-module.Vector4D = function (ix, iy, iz, iw)
-	return setmetatable({ix, iy, iz, iw}, mt)
+module.Vector4D = function(ix, iy, iz, iw)
+	return setmetatable({x=ix, y=iy, z=iz, w=iw}, mt)
 end
 
 return module

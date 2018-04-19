@@ -64,7 +64,7 @@ def findChecker(params, exportAsSparseMatrix, sheet, book):
 	raise error.Err(sheet.name, 'non-sparse matrix have no type restrict')
 
 
-def ExportGameData(sheet, book, startRow, params, field_checker):
+def ExportGameData(sheet, book, startRow, params, context):
 	while ShouldSkipRow(sheet, startRow):
 		startRow = startRow + 1
 	exportAsSparseMatrix = False
@@ -72,11 +72,12 @@ def ExportGameData(sheet, book, startRow, params, field_checker):
 		if 'sparse' == params[0]:
 			exportAsSparseMatrix = True
 			params = params[1:]
-	
+
 	ch = findChecker(params, exportAsSparseMatrix, sheet, book)
+	modifier = context['modifier']
 	def checker(cell, r, c):
 		value = ch(cell, r, c)
-		return field_checker('$any', value, sheet.name, r, c)
+		return modifier(None, context['field_checker']('$any', value, sheet.name, r, c))
 
 	if exportAsSparseMatrix:
 		matrix = {}
