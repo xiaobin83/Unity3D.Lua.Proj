@@ -25,6 +25,7 @@ namespace utils
 				new lua.Api.luaL_Reg("Load", Load_Lua),
 				new lua.Api.luaL_Reg("LoadAll", LoadAll_Lua),
 				new lua.Api.luaL_Reg("LoadAsync", LoadAsync_Lua),
+				new lua.Api.luaL_Reg("SetCryptoKey", SetCryptoKey_Lua),
 			};
 			lua.Api.luaL_newlib(L, reg);
 			return 1;
@@ -33,7 +34,13 @@ namespace utils
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
 		static int LoadBytes_Lua(IntPtr L)
 		{
-			var bytes = ResMgr.LoadBytes(lua.Api.lua_tostring(L, 1));
+			var encrypted = false;
+			if (lua.Api.lua_gettop(L) == 2)
+			{
+				if (lua.Api.lua_type(L, 2) == lua.Api.LUA_TBOOLEAN)
+					encrypted = lua.Api.lua_toboolean(L, 2);
+			}
+			var bytes = ResMgr.LoadBytes(lua.Api.lua_tostring(L, 1), encrypted);
 			if (bytes == null) return 0;
 			lua.Api.lua_pushbytes(L, bytes);
 			return 1;
@@ -42,7 +49,13 @@ namespace utils
 		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
 		static int LoadText_Lua(IntPtr L)
 		{
-			var text = ResMgr.LoadText(lua.Api.lua_tostring(L, 1));
+			var encrypted = false;
+			if (lua.Api.lua_gettop(L) == 2)
+			{
+				if (lua.Api.lua_type(L, 2) == lua.Api.LUA_TBOOLEAN)
+					encrypted = lua.Api.lua_toboolean(L, 2);
+			}
+			var text = ResMgr.LoadText(lua.Api.lua_tostring(L, 1), encrypted);
 			if (text == null) return 0;
 			lua.Api.lua_pushstring(L, text);
 			return 1;
@@ -138,6 +151,15 @@ namespace utils
 				if (progress == 100)
 					func.Dispose();
 			}, workerBehaviour);
+			return 0;
+		}
+
+
+		[MonoPInvokeCallback(typeof(lua.Api.lua_CFunction))]
+		static int SetCryptoKey_Lua(IntPtr L)
+		{
+			var key = (uint)(long)lua.Api.lua_tointeger(L, 1);
+			ResMgr.SetCryptoKey(key);
 			return 0;
 		}
 

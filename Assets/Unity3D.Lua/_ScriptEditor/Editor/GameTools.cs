@@ -18,6 +18,10 @@ public class GameTools : EditorWindow {
 	class Config : ScriptableObject
 	{
 		public DefaultAsset gameDataAsset;	
+		public bool encryptGameData;
+		public string exportGameDataScript;
+		public string piker;
+		public int cryptoKey = 0x600d1dea;
 	}
 
 	Config config;
@@ -57,31 +61,104 @@ public class GameTools : EditorWindow {
 		return CheckCreatePath(Path.Combine("Assets/_Generated/Resources", subPath));
 	}
 
-	void RefreshAssetDatabase()
+	string FindExportGameDataScript()
 	{
-		CustomEditorApp.AddTask(() => AssetDatabase.Refresh());
+		if (!string.IsNullOrEmpty(config.exportGameDataScript))
+		{
+			if (File.Exists(config.exportGameDataScript))
+				return config.exportGameDataScript;
+			config.exportGameDataScript = null;
+		}
+		var scripts = AssetDatabase.FindAssets("export_gamedata");
+		foreach (var s in scripts)
+		{
+			var scriptName = AssetDatabase.GUIDToAssetPath(s);
+			var otherScriptName = Path.Combine(Path.GetDirectoryName(scriptName), "export_sheet.py");
+			if (File.Exists(otherScriptName))
+			{
+				config.exportGameDataScript = scriptName;
+				return scriptName;
+			}
+		}
+		return null;
+	}
+
+	string FindPiker()
+	{
+		if (!string.IsNullOrEmpty(config.piker))
+		{
+			if (File.Exists(config.piker))
+				return config.piker;
+			config.piker = null;
+		}
+		var files = AssetDatabase.FindAssets("Piker");
+		foreach (var s in files)
+		{
+			var piker = AssetDatabase.GUIDToAssetPath(s);
+			var otherFilename = Path.Combine(Path.GetDirectoryName(piker), "Pike.dll");
+			if (File.Exists(otherFilename))
+			{
+				config.piker = piker;
+				return piker;
+			}
+		}
+		return null;
 	}
 
 	void OnGUI()
 	{
+		GUILayout.Label("Game Data");
+
+		EditorGUI.indentLevel++;
+
+		config.encryptGameData = EditorGUILayout.Toggle("Encrypt?", config.encryptGameData);
+		if (config.encryptGameData)
+		{
+			EditorGUI.indentLevel++;
+			config.cryptoKey = EditorGUILayout.IntField("Crypto Key", config.cryptoKey);
+			EditorGUI.indentLevel--;
+		}
+		
 		GUILayout.BeginHorizontal();
 		config.gameDataAsset = (DefaultAsset)EditorGUILayout.ObjectField(config.gameDataAsset, typeof(Object), allowSceneObjects:false);
-		if (GUILayout.Button("Export GameData ...", GUILayout.ExpandWidth(false)))
+		if (GUILayout.Button("Export", GUILayout.ExpandWidth(false)))
 		{
 			if (config.gameDataAsset != null)
 			{
 				var path = AssetDatabase.GetAssetPath(config.gameDataAsset.GetInstanceID());
-				var scripts = AssetDatabase.FindAssets("export_gamedata");
-				if (scripts.Length > 0)
+				var scriptName = FindExportGameDataScript();
+				if (!string.IsNullOrEmpty(scriptName))
 				{
-					var scriptName = AssetDatabase.GUIDToAssetPath(scripts[0]);
 					var outputPath = CheckPath(string.Empty);
-					Cmd.Execute("python " + scriptName + " -i " + path + " -o " + Path.Combine(outputPath, "GameData.json"), () => RefreshAssetDatabase());
+					var outputName = Path.GetFileNameWithoutExtension(path);
+					var jsonOutput = Path.Combine(outputPath, outputName + ".json");
+					Cmd.Execute("python " + scriptName + " -i " + path + " -o " + jsonOutput);
+					Debug.Assert(File.Exists(jsonOutput));
+					if (config.encryptGameData)
+					{
+						var piker = FindPiker();
+						if (!string.IsNullOrEmpty(piker))
+						{
+							var encryptOutput = Path.Combine(outputPath, outputName + ".bytes");
+							Cmd.Execute(piker + " -i " + jsonOutput + " -o " + encryptOutput + " -k " + config.cryptoKey.ToString());
+							Debug.Assert(File.Exists(encryptOutput));
+							AssetDatabase.DeleteAsset(jsonOutput);
+							AssetDatabase.Refresh();
+						}
+					}
 				}
-				
+				else
+				{
+					Debug.LogError("Piker not found.");
+				}
+			}
+			else
+			{
+				Debug.LogError("GameData export script 'export_gamedata' not found!");
 			}
 		}
 		GUILayout.EndHorizontal();
+		
 	}
 
 }

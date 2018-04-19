@@ -7,16 +7,10 @@ using System.Text;
 
 public class Cmd {
 
-	public static void Execute(string cmdLine, System.Action complete)
+	public static void Execute(string cmdLine)
 	{
-		var thread = new Thread(delegate ()
-		{
-			Command(cmdLine);
-			if (complete != null)
-				complete();
-		});
-		thread.Start();
-		
+		cmdLine = cmdLine.Replace('/', '\\');
+		Command(cmdLine);
 	}
 
 	static void Command(string cmdLine)
@@ -24,12 +18,10 @@ public class Cmd {
 		var sb = new StringBuilder();
 		sb.AppendFormat("executing {0}", cmdLine);
 		sb.AppendLine();
-
+		Thread.Sleep(100);
 		var processInfo = new ProcessStartInfo("cmd.exe", "/c " + cmdLine);
 		processInfo.CreateNoWindow = true;
 		processInfo.UseShellExecute = false;
-		processInfo.RedirectStandardOutput = true;
-		processInfo.RedirectStandardError = true;
 		var process = Process.Start(processInfo);
 		process.OutputDataReceived += (sender, e) => {
 			sb.AppendLine(e.Data);

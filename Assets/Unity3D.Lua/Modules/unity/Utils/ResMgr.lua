@@ -13,6 +13,9 @@ _R = function(t, uri, ...)
 	elseif t == ':unloadunused' then
 		resmgr.UnloadUnused()
 		return
+	elseif t == ':setcryptokey' then
+		resmgr.SetCryptoKey(uri)
+		return
 	end
 
 	if t == "gameobject" then
@@ -38,8 +41,12 @@ _R = function(t, uri, ...)
 		r = resmgr.LoadSprites(uri)
 	elseif t == 'bytes' then
 		r = resmgr.LoadBytes(uri)
+	elseif t == 'encrypted_bytes' then
+		r = resmgr.LoadBytes(uri, true)
 	elseif t == 'text' then
 		r = resmgr.LoadText(uri)
+	elseif t == 'encrypted_text' then
+		r = resmgr.LoadText(uri, true)
 	elseif t == 'object' then
 		r = resmgr.LoadObject(uri)
 	elseif t == 'objects' then
