@@ -182,6 +182,10 @@ namespace lua
             Event_GestureTwoFingerMove,
             Event_GestureTwoFingerEnd,
 
+			STA_OnEnter,
+			STA_OnExit,
+			STA_OnUpdate,
+
             OnLowMemory,
 
 			OnDrawGizmos,
@@ -399,6 +403,7 @@ namespace lua
 					instanceBehaviours.Add(gameObject.AddComponent<LuaTriggerStayBehaviour2D>());
 				}
 
+
 				flag = messageFlag 
 					& (MakeFlag(Message.Event_PointerClick)
 					| MakeFlag(Message.Event_PointerUp)
@@ -458,11 +463,31 @@ namespace lua
 					instanceBehaviours[i].SetLuaBehaviour(this);
 					instanceBehaviours[i].enabled = false;
 				}
+
+
+				SetupLinkedObjectTable();
+				
 				SendLuaMessage(LuaBehaviour.Message.Awake); // Awake Lua Script
 			}
 			else
 			{
 				Config.LogWarning(string.Format("No Lua script running with {0}.", gameObject.name));
+			}
+		}
+
+		void SetupLinkedObjectTable()
+		{
+			if (objectKeys != null)
+			{
+				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, luaBehaviourRef);
+				Api.lua_createtable(L, 0, objectKeys.Length);
+				for (int i = 0; i < objectKeys.Length; ++i)
+				{
+					L.PushObject(objects[i]);
+					Api.lua_setfield(L, -2, objectKeys[i]);
+				}
+				Api.lua_setfield(L, -2, "_objects");
+				Api.lua_pop(L, 1);
 			}
 		}
 

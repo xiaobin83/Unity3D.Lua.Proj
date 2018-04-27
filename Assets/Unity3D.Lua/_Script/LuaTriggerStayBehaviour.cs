@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaTriggerStayBehaviour : LuaInstanceBehaviour0
+	internal class LuaTriggerStayBehaviour : LuaInstanceBehaviour0
 	{
 		void OnTriggerStay(Collider col)
 		{

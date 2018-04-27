@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaMiscBehaviour: LuaInstanceBehaviour0
+	internal class LuaMiscBehaviour: LuaInstanceBehaviour0
 	{
 		void OnDrawGizmos()
 		{

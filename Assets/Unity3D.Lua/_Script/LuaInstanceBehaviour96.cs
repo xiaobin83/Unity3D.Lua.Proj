@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaInstanceBehaviour96 : LuaInstanceBehaviour0
+	internal class LuaInstanceBehaviour96 : LuaInstanceBehaviour0
 	{
 		void Update()
 		{

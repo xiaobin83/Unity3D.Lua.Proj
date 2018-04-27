@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaCollisionStayBehaviour : LuaInstanceBehaviour0
+	internal class LuaCollisionStayBehaviour : LuaInstanceBehaviour0
 	{
 		void OnCollisionStay(Collision col)
 		{

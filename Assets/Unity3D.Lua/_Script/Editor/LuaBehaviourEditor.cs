@@ -45,11 +45,9 @@ namespace lua
 		List<object> values;
 
 		const string mergeFunction =
-			"function merge(orig, cur)\n" +
-			// "  Debug = csharp.import('UnityEngine.Debug, UnityEngine')\n" + 
-			"  merged = {}\n" +
+			"return function(orig, cur)\n" +
+			"  local merged = {}\n" +
 			"  for k, v in pairs(orig) do\n" +
-			// "    Debug.Log(k)\n" +
 			"    if cur[k] or type(cur[k]) == 'boolean' then\n" +
 			"      merged[k] = cur[k]\n" +
 			"    else\n" +
@@ -221,7 +219,6 @@ namespace lua
 				// -1: deserialized values
 
 				Api.luaL_dostring(L, mergeFunction);
-				luaType = Api.lua_getglobal(L, "merge");
 				// stack: table, func
 				Api.lua_rawgeti(L, Api.LUA_REGISTRYINDEX, refToOriginal);
 				// stack: table, func, original table

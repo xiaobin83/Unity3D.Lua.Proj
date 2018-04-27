@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaTriggerBehaviour : LuaInstanceBehaviour0
+	internal class LuaTriggerBehaviour : LuaInstanceBehaviour0
 	{
 		void OnTriggerEnter(Collider col)
 		{

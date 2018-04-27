@@ -24,8 +24,7 @@ namespace utils
 		public static int Download_Lua(IntPtr L)
 		{
 			string url = lua.Api.lua_tostring(L, 1);
-			var host = lua.Lua.CheckHost(L);
-			var complete = lua.LuaFunction.MakeRefTo(host, 2);
+			var complete = (lua.LuaFunction)lua.Lua.ValueAtInternal(L, 2);
 			WebRequest2.Download(url, (data) =>
 			{
 				complete.Invoke(data);
@@ -43,8 +42,7 @@ namespace utils
 			lua.LuaFunction complete = null;
 			if (lua.Api.lua_isfunction(L, 4))
 			{
-				var host = lua.Lua.CheckHost(L);
-				complete = lua.LuaFunction.MakeRefTo(host, 4);
+				complete = (lua.LuaFunction)lua.Lua.ValueAtInternal(L, 4);
 			}
 			var context = (WebRequest2.Context)lua.Lua.ObjectAtInternal(L, 5);
 			WebRequest2.Get(new System.Uri(url), function, queryString, 
@@ -90,8 +88,7 @@ namespace utils
 			lua.LuaFunction complete = null;
 			if (lua.Api.lua_isfunction(L, 4))
 			{
-				var host = lua.Lua.CheckHost(L);
-				complete = lua.LuaFunction.MakeRefTo(host, 4);
+				complete = (lua.LuaFunction)lua.Lua.ValueAtInternal(L, 4);
 			}
 
 			var context = (WebRequest2.Context)lua.Lua.ObjectAtInternal(L, 5);

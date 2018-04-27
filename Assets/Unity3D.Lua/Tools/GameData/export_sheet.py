@@ -67,6 +67,7 @@ def ExportGameData(sheet, book, startRow, params, context):
 
 	data = {}
 
+	lowerKeys = context['lower_keys']
 	field_checker = context['field_checker']
 	modifier = context['modifier']
 	for r in xrange(startRow + 1, sheet.nrows):
@@ -79,17 +80,18 @@ def ExportGameData(sheet, book, startRow, params, context):
 				key = ExportCell(cell, book, checker)
 			except Exception, e:
 				print >> sys.stderr, e
-				raise error.ErrInvalidFormatAt(sheet.name, r, 0) 
+				raise error.ErrInvalidFormatAt(sheet.name, r, 0)
 			if data.has_key(key):
 				raise error.ErrDuplicatedID(key, sheet.name, r)
+
 			obj = {}
 			data[key] = obj
-			for c in xrange(1, sheet.ncols):
+			for c in xrange(0, sheet.ncols):
 				if not keysIndex.has_key(c):
 					break
 				cellName = keysIndex[c]
 				cell = sheet.cell(r, c)
-				checker = GetFieldChecker(keysIndex[c], sheet.name, r, c, field_checker)
+				checker = GetFieldChecker(cellName, sheet.name, r, c, field_checker)
 				try:
 					cellData = modifier(cellName, ExportCell(cell, book, checker))
 				except Exception, e:
@@ -98,7 +100,10 @@ def ExportGameData(sheet, book, startRow, params, context):
 				if cellData == errCellError:
 					raise error.ErrInvalidFormatAt(sheet.name, r, c)
 				if cellData is not None:
-					obj[cellName] = cellData
+					if lowerKeys:
+						obj[cellName.lower()] = cellData
+					else:
+						obj[cellName] = cellData
 	return data
 
 

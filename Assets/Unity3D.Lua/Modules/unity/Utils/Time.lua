@@ -1,5 +1,5 @@
 local Time = {}
-local _LogT, _LogD, _LogI, _LogW, _LogE = require('Debug').GetLogFuncs('[TIME]')
+local _LogT, _LogD, _LogI, _LogW, _LogE = require('unity.Debug').GetLogFuncs('[TIME]')
 
 local timestamp = csharp.timestamp;
 local Unity = require 'unity.Unity'

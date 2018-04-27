@@ -84,7 +84,7 @@ namespace lua
 				return 1;
 			}
 
-			var mangledName = Lua.CheckHost(L).Mangle("__ctor", luaArgTypes, invokingStaticMethod: true, argStart: 2);
+			var mangledName = Lua.Mangle(L, "__ctor", luaArgTypes, invokingStaticMethod: true, argStart: 2);
 			var mc = Lua.GetMethodFromCache(type, mangledName);
 			System.Reflection.ParameterInfo[] parameters = null;
 			if (mc == null)
@@ -203,9 +203,11 @@ namespace lua
 			}
 			else if (Api.lua_istable(L, 2))
 			{
-				var host = Lua.CheckHost(L);
-				using (var p = LuaTable.MakeRefTo(host, 2))
+				// do not use LuaTable.MakeRefAt(Lua.CheckHost(host), 2)
+				// L and host may not in same lua_State, they could run in coroutine
+				using (var p = (lua.LuaTable)Lua.ValueAtInternal(L, 2))
 				{
+					var host = Lua.CheckHost(L); // now host and p at same lua_State
 					var isGettingTypeObject = (bool)host.isIndexingTypeObject.Invoke1(p);
 					if (isGettingTypeObject)
 					{
@@ -237,7 +239,7 @@ namespace lua
 						var genericTypes = (Type[])ret[4];
 						return Lua.GetMember(L, thisObject, typeObject, name, hasPrivatePrivillage, exactTypes, genericTypes);
 					}
-			
+
 				}
 			}
 			else
@@ -299,9 +301,9 @@ namespace lua
 			}
 			else if (Api.lua_istable(L, 2))
 			{
-				var host = Lua.CheckHost(L);
-				using (var p = LuaTable.MakeRefTo(host, 2))
+				using (var p = (LuaTable)Lua.ValueAtInternal(L, 2))
 				{
+					var host = Lua.CheckHost(L);
 					using (var ret = host.testPrivillage.InvokeMultiRet(p))
 					{
 						var name = (string)ret[1];

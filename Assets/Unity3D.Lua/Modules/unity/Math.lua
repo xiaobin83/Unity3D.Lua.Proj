@@ -60,6 +60,7 @@ end
 
 Math.Vector2 = {}
 Math.Vector2.zero = v2d.Vector2D(0, 0)
+Math.Vector2.zero_Unity = UnityVector2.zero
 Math.Vector2.one = v2d.Vector2D(1, 1)
 setmetatable(
 	Math.Vector2, 

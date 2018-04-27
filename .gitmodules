@@ -1,0 +1,3 @@
+[submodule "Assets/Unity3D.Stubs"]
+	path = Assets/Unity3D.Stubs
+	url = https://github.com/xiaobin83/Unity3D.Stubs

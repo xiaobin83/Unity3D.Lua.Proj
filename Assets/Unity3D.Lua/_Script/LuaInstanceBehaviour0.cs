@@ -25,12 +25,13 @@ using UnityEngine;
 
 namespace lua
 {
-	public class LuaInstanceBehaviour0 : MonoBehaviour
+	internal class LuaInstanceBehaviour0 : MonoBehaviour
 	{
 		protected LuaBehaviour luaBehaviour;
-		internal void SetLuaBehaviour(LuaBehaviour behaviour)
+		public void SetLuaBehaviour(LuaBehaviour behaviour)
 		{
 			luaBehaviour = behaviour;
 		}
+
 	}
 }

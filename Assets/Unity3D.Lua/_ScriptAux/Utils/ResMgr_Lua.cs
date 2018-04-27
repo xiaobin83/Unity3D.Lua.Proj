@@ -145,7 +145,7 @@ namespace utils
 		static int LoadAsync_Lua(IntPtr L)
 		{
 			MonoBehaviour workerBehaviour = null;
-			var func = lua.LuaFunction.MakeRefTo(lua.Lua.CheckHost(L), 2);
+			var func = (lua.LuaFunction)lua.Lua.ValueAtInternal(L, 2);
 			ResMgr.LoadAsync(lua.Api.lua_tostring(L, 1), (progress, obj) => {
 				func.Invoke(progress, obj);
 				if (progress == 100)

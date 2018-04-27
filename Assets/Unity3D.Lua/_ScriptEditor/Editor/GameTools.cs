@@ -3,15 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using stubs;
 
 public class GameTools : EditorWindow {
-
-	const string kLastGameDataPath = "_unity3d_lua_gametools_lastgamedatapath";
 
 	[MenuItem("Unity3D.Lua/Game Tools")]
 	static void ShowGameTools()
 	{
-		var gameTools = EditorWindow.GetWindow<GameTools>();
+		var gameTools = EditorWindow.GetWindow<GameTools>("Game Tools");
 		gameTools.ShowUtility();
 	}
 
@@ -19,8 +18,8 @@ public class GameTools : EditorWindow {
 	{
 		public DefaultAsset gameDataAsset;	
 		public bool encryptGameData;
-		public string exportGameDataScript;
-		public string piker;
+		public string pathExportGameData;
+		public string pathPiker;
 		public int cryptoKey = 0x600d1dea;
 	}
 
@@ -63,11 +62,11 @@ public class GameTools : EditorWindow {
 
 	string FindExportGameDataScript()
 	{
-		if (!string.IsNullOrEmpty(config.exportGameDataScript))
+		if (!string.IsNullOrEmpty(config.pathExportGameData))
 		{
-			if (File.Exists(config.exportGameDataScript))
-				return config.exportGameDataScript;
-			config.exportGameDataScript = null;
+			if (File.Exists(config.pathExportGameData))
+				return config.pathExportGameData;
+			config.pathExportGameData = null;
 		}
 		var scripts = AssetDatabase.FindAssets("export_gamedata");
 		foreach (var s in scripts)
@@ -76,7 +75,7 @@ public class GameTools : EditorWindow {
 			var otherScriptName = Path.Combine(Path.GetDirectoryName(scriptName), "export_sheet.py");
 			if (File.Exists(otherScriptName))
 			{
-				config.exportGameDataScript = scriptName;
+				config.pathExportGameData = scriptName;
 				return scriptName;
 			}
 		}
@@ -85,11 +84,11 @@ public class GameTools : EditorWindow {
 
 	string FindPiker()
 	{
-		if (!string.IsNullOrEmpty(config.piker))
+		if (!string.IsNullOrEmpty(config.pathPiker))
 		{
-			if (File.Exists(config.piker))
-				return config.piker;
-			config.piker = null;
+			if (File.Exists(config.pathPiker))
+				return config.pathPiker;
+			config.pathPiker = null;
 		}
 		var files = AssetDatabase.FindAssets("Piker");
 		foreach (var s in files)
@@ -98,7 +97,7 @@ public class GameTools : EditorWindow {
 			var otherFilename = Path.Combine(Path.GetDirectoryName(piker), "Pike.dll");
 			if (File.Exists(otherFilename))
 			{
-				config.piker = piker;
+				config.pathPiker = piker;
 				return piker;
 			}
 		}

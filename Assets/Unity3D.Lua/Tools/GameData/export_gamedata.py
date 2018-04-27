@@ -18,6 +18,7 @@ def exportSheet(sheet, wb, filename, disableColoredMatrix, command):
 	context = {
 		'field_checker': type_restrict.AllPassChecker,
 		'modifier': modifier_trival.NewModifier(),
+		'lower_keys': False
 	}
 	for r in xrange(0, sheet.nrows):
 		firstCell = sheet.cell(r, 0)
@@ -48,6 +49,8 @@ def exportSheet(sheet, wb, filename, disableColoredMatrix, command):
 				context['field_checker'] = type_restrict.GetChecker(params[0])
 			elif scriptName == 'modifier':
 				context['modifier'] = __import__(scriptName + '_' + params[0]).NewModifier(params[1:])
+			elif scriptName == 'lower_keys':
+				context['lower_keys'] = True
 			else:
 				exportScript = __import__(scriptName)
 				return exportScript.ExportGameData(sheet, wb, r+1, params, context)

@@ -814,12 +814,11 @@ namespace lua
 		internal static Lua CheckHost(IntPtr L)
 		{
 			Lua host = null;
-			var top = Api.lua_gettop(L);
 			if (Api.lua_getglobal(L, kHost) == Api.LUA_TUSERDATA)
 			{
 				host = ObjectAtInternal(L, -1) as Lua;
 			}
-			Api.lua_settop(L, top);
+			Api.lua_pop(L, 1);
 			if (host == null) // coroutine -> host.L != L)
 			{
 				throw new LuaException("__host not found or mismatch.");
@@ -2014,8 +2013,8 @@ namespace lua
 			return method;
 		}
 
-		System.Text.StringBuilder tempSb = new System.Text.StringBuilder();
-		internal string Mangle(string methodName, int[] luaArgTypes, bool invokingStaticMethod, int argStart)
+		static System.Text.StringBuilder tempSb = new System.Text.StringBuilder();
+		internal static string Mangle(IntPtr L, string methodName, int[] luaArgTypes, bool invokingStaticMethod, int argStart)
 		{
 			var sb = tempSb;
 			sb.Length = 0;
@@ -2423,7 +2422,7 @@ namespace lua
 
 				var mangledName = string.Empty;
 				var methodName = members[0].Name;
-				mangledName = CheckHost(L).Mangle(methodName, luaArgTypes, invokingStaticMethod, argStart);
+				mangledName = Mangle(L, methodName, luaArgTypes, invokingStaticMethod, argStart);
 				mc = GetMethodFromCache(type, mangledName);
 				if (mc == null)
 				{
