@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
+using x600d1dea.utils;
 
 
 public class LuaScriptLoader {
@@ -107,7 +108,7 @@ public class LuaScriptLoader {
 		}
 		scriptName = scriptName.ToLower();
 
-		var s = utils.ResMgr.LoadBytes("_LuaRoot/" + scriptName);
+		var s = ResMgr.LoadBytes("_LuaRoot/" + scriptName);
 		if (s != null)
 		{
 			scriptPath = scriptName;

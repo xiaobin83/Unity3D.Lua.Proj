@@ -1,5 +1,5 @@
 local pb = require 'pb'
-local ResMgr = csharp.checked_import('utils.ResMgr')
+local ResMgr = csharp.checked_import('x600d1dea.utils.ResMgr')
 pb.load(ResMgr.LoadBytes('pb/person'))
 local PhoneType = pb.findtype('Phone.PHONE_TYPE'):to_enums()
 local person = {}

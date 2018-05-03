@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.IO;
+using x600d1dea.utils;
 
 public class _Init : MonoBehaviour {
 
@@ -11,7 +12,7 @@ public class _Init : MonoBehaviour {
 		public lua.LuaStateBehaviour luaState;
 		void Awake()
 		{
-			utils.TaskManager.Init();
+			TaskManager.Init();
 
 			lua.Config.Log = (msg) => UnityEngine.Debug.Log("[lua]" + msg);
 			lua.Config.LogWarning = (msg) => UnityEngine.Debug.LogWarning("[lua]" + msg);
