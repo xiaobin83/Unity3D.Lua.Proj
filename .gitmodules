@@ -1,3 +1,6 @@
 [submodule "Assets/Unity3D.Stubs"]
 	path = Assets/Unity3D.Stubs
 	url = https://github.com/xiaobin83/Unity3D.Stubs
+[submodule "Assets/Unity3D.Lua"]
+	path = Assets/Unity3D.Lua
+	url = git@github.com:xiaobin83/Unity3D.Lua
