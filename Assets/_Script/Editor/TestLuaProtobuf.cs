@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using NUnit.Framework;
+using x600d1dea.lua;
 
 namespace lua.test
 {

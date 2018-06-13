@@ -26,6 +26,7 @@ using System.Collections;
 using NUnit.Framework;
 using AOT;
 using System.Linq;
+using x600d1dea.lua;
 
 namespace lua.test
 {
@@ -716,12 +717,12 @@ namespace lua.test
 
 		public class SomeClass
 		{
-			public int MeCallYou(lua.LuaFunction complete)
+			public int MeCallYou(LuaFunction complete)
 			{
 				return (int)(long)complete.Invoke1();
 			}
 
-			public int MeCallYou2(lua.LuaFunction complete)
+			public int MeCallYou2(LuaFunction complete)
 			{
 				return (int)(long)complete.Invoke1(null, "called in MeCallYou2");
 			}
@@ -779,7 +780,7 @@ namespace lua.test
 		{
 			Api.lua_settop(L, 0);
 
-			using (var runMe = (lua.LuaTable)L.RunScript1("RunMe"))
+			using (var runMe = (LuaTable)L.RunScript1("RunMe"))
 			{
 				Assert.AreEqual(0, Api.lua_gettop(L));
 
@@ -802,7 +803,7 @@ namespace lua.test
 			}
 
 
-			using (var runMe = (lua.LuaTable)L.RunScript1("RunMe"))
+			using (var runMe = (LuaTable)L.RunScript1("RunMe"))
 			{
 				Assert.AreEqual(0, Api.lua_gettop(L));
 				Assert.AreEqual(null, runMe["TestValue"]);
@@ -817,7 +818,7 @@ namespace lua.test
 		{
 			Api.lua_settop(L, 0);
 
-			using (var runMe = (lua.LuaTable)L.Require("RunMe"))
+			using (var runMe = (LuaTable)L.Require("RunMe"))
 			{
 				Assert.AreEqual(0, Api.lua_gettop(L));
 
@@ -847,7 +848,7 @@ namespace lua.test
 				}
 			}
 
-			using (var runMe = (lua.LuaTable)L.Require("RunMe"))
+			using (var runMe = (LuaTable)L.Require("RunMe"))
 			{
 				Assert.AreEqual("Test Value", runMe["TestValue"]);
 				Assert.AreEqual(7788, runMe[25]);
@@ -1179,7 +1180,7 @@ namespace lua.test
 					try
 					{
 
-						lua.Config.LogError = (message) => thisMessage = message;
+						Config.LogError = (message) => thisMessage = message;
 						using (var f = LuaFunction.NewFunction(L,
 							"function(f) csharp.check_error(f()) end"))
 						{
@@ -1192,7 +1193,7 @@ namespace lua.test
 						Assert.True(thisMessage.IndexOf("csharp.check_error") > 0);
 						Debug.Log("Catched Error: " + thisMessage);
 						Assert.Greater(thisMessage.Length, 0);
-						lua.Config.LogError = null;
+						Config.LogError = null;
 						throw e;
 					}
 				});

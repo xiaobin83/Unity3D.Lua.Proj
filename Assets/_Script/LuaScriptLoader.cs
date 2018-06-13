@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
-using x600d1dea.utils;
+using x600d1dea.lua;
+using x600d1dea.stubs.utils;
 
 
 public class LuaScriptLoader {
@@ -118,7 +119,7 @@ public class LuaScriptLoader {
 		return null;
 	}
 
-	[lua.LuaScriptLoader]
+	[LuaScriptLoader]
 	public static byte[] ScriptLoader(string scriptName, out string scriptPath)
 	{
 		if (Application.isEditor)
@@ -132,7 +133,7 @@ public class LuaScriptLoader {
 		}
 	}
 
-	[lua.LuaTypeLoader]
+	[LuaTypeLoader]
 	public static Type TypeLoader(string typename)
 	{
 		Type type = Type.GetType(typename);
@@ -147,7 +148,7 @@ public class LuaScriptLoader {
 		return type;
 	}
 
-	[lua.LuaEditorGetPathDelegate]
+	[LuaEditorGetPathDelegate]
 	public static string[] Editor_GetPath()
 	{
 		return new string[] {

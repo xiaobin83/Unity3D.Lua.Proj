@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.IO;
-using x600d1dea.utils;
+using x600d1dea.lua;
+using x600d1dea.stubs.utils;
 
 public class _Init : MonoBehaviour {
 
@@ -9,23 +10,22 @@ public class _Init : MonoBehaviour {
 
 	class _InternalInit : MonoBehaviour
 	{
-		public lua.LuaStateBehaviour luaState;
+		public LuaStateBehaviour luaState;
 		void Awake()
 		{
 			TaskManager.Init();
 
-			lua.Config.Log = (msg) => UnityEngine.Debug.Log("[lua]" + msg);
-			lua.Config.LogWarning = (msg) => UnityEngine.Debug.LogWarning("[lua]" + msg);
-			lua.Config.LogError = (msg) => UnityEngine.Debug.LogError("[lua]" + msg);
+			Config.Log = (msg) => UnityEngine.Debug.Log("[lua]" + msg);
+			Config.LogWarning = (msg) => UnityEngine.Debug.LogWarning("[lua]" + msg);
+			Config.LogError = (msg) => UnityEngine.Debug.LogError("[lua]" + msg);
 
-			luaState = lua.LuaStateBehaviour.Create();
-			lua.Api.luaL_requiref(luaState.luaVm, "pb", lua.CModules.luaopen_pb, 0);
+			luaState = LuaStateBehaviour.Create();
 
-			lua.Lua.scriptLoader = LuaScriptLoader.ScriptLoader;
-			lua.Lua.typeLoader = LuaScriptLoader.TypeLoader;
+			Lua.scriptLoader = LuaScriptLoader.ScriptLoader;
+			Lua.typeLoader = LuaScriptLoader.TypeLoader;
 
 #if UNITY_EDITOR
-			lua.Lua.editorGetPathDelegate = LuaScriptLoader.Editor_GetPath;
+			Lua.editorGetPathDelegate = LuaScriptLoader.Editor_GetPath;
 			luaState.luaVm.Editor_UpdatePath();
 #endif
 		}
@@ -33,7 +33,7 @@ public class _Init : MonoBehaviour {
 	}
 
 	static _InternalInit _internalInit;
-	public static lua.Lua luaVm
+	public static Lua luaVm
 	{
 		get
 		{

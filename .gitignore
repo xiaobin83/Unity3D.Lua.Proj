@@ -39,3 +39,4 @@ Temp/
 *.pyc.meta
 
 .vscode/
+.vs/
